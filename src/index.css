@@ -1,0 +1,370 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-display: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+    
+    /* DentiFlow 2.0 Warm Ivory & Clinical Studio Visual Tokens */
+    --color-bg: #F7F5F1;
+    --color-bg-alt: #F3F1ED;
+    --color-surface: rgba(255, 255, 255, 0.85);
+    --color-surface-warm: #EDE8DE;
+    --color-surface-elevated: #FFFFFF;
+    --color-text-primary: #252525;
+    --color-text-secondary: #6F6D69;
+    --color-text-muted: #999690;
+    --color-border: rgba(70, 65, 55, 0.08);
+    --color-border-warm: rgba(200, 181, 141, 0.25);
+    
+    /* Warm Champagne Accent Palette */
+    --color-accent-primary: #C8B58D;
+    --color-accent-hover: #B8A378;
+    --color-accent-soft: rgba(200, 181, 141, 0.15);
+    --color-accent-glow: rgba(200, 181, 141, 0.25);
+    
+    /* Muted Status Indicators */
+    --color-success: #8FA88D;
+    --color-warning: #C5A66A;
+    --color-danger: #B97870;
+  }
+  
+  html, body, #root {
+    width: 100%;
+    min-width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+  
+  html {
+    font-family: var(--font-sans);
+    scroll-behavior: smooth;
+    background: linear-gradient(135deg, #F7F5F1 0%, #F3F1ED 50%, #ECEBE6 100%);
+    color: var(--color-text-primary);
+  }
+
+  body {
+    background: linear-gradient(135deg, #F7F5F1 0%, #F3F1ED 50%, #ECEBE6 100%);
+    color: var(--color-text-primary);
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+}
+
+/* Custom Animation Keyframes for Level 10 Executive Clinical Aesthetic */
+@keyframes toothFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes scanLine {
+  0% {
+    top: 0%;
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0.2;
+  }
+}
+
+@keyframes gentleGlow {
+  0%, 100% {
+    opacity: 0.40;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.70;
+    transform: scale(1.06);
+  }
+}
+
+.animate-tooth-float {
+  animation: toothFloat 6s ease-in-out infinite;
+}
+
+.animate-scan-line {
+  animation: scanLine 3s ease-in-out infinite;
+}
+
+.animate-gentle-glow {
+  animation: gentleGlow 4s ease-in-out infinite;
+}
+
+/* Global Reusable DentiFlow 2.0 Buttons & Utility Classes */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.35rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, #C8B58D 0%, #B8A378 100%);
+  color: #252525;
+  font-weight: 800;
+  font-size: 0.8125rem;
+  letter-spacing: 0.025em;
+  border: 1px solid rgba(200, 181, 141, 0.4);
+  box-shadow: 0 4px 15px rgba(200, 181, 141, 0.25);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #D6C49D 0%, #C8B58D 100%);
+  box-shadow: 0 6px 20px rgba(200, 181, 141, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.35rem;
+  border-radius: 0.75rem;
+  background-color: rgba(255, 255, 255, 0.85);
+  color: #252525;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  border: 1px solid rgba(70, 65, 55, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 2px 10px rgba(70, 65, 55, 0.04);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-secondary:hover {
+  background-color: #ffffff;
+  color: #111111;
+  border-color: rgba(200, 181, 141, 0.40);
+  box-shadow: 0 4px 15px rgba(200, 181, 141, 0.15);
+}
+
+.btn-secondary:active {
+  transform: scale(0.98);
+}
+
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.35rem;
+  border-radius: 0.75rem;
+  background-color: rgba(185, 120, 112, 0.12);
+  color: #B97870;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  border: 1px solid rgba(185, 120, 112, 0.30);
+  backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-danger:hover {
+  background-color: rgba(185, 120, 112, 0.22);
+  border-color: rgba(185, 120, 112, 0.50);
+  color: #8D4E46;
+  box-shadow: 0 4px 15px rgba(185, 120, 112, 0.20);
+}
+
+.btn-danger:active {
+  transform: scale(0.98);
+}
+
+/* Translucent Frosted Clinical Cards & HUD Panels */
+.df-card {
+  background-color: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.60);
+  box-shadow: 0 10px 35px rgba(70, 65, 55, 0.05);
+  border-radius: 1.25rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.df-card:hover {
+  box-shadow: 0 15px 45px rgba(70, 65, 55, 0.08);
+}
+
+/* Workstation / High Contrast HUD Mode Override (Subtle Warm Ivory Glass) */
+.workstation-mode {
+  color: #252525;
+}
+
+.workstation-mode .bg-white,
+.workstation-mode .bg-white\/95,
+.workstation-mode .bg-white\/92,
+.workstation-mode .bg-white\/90,
+.workstation-mode .bg-white\/80 {
+  background-color: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(18px) !important;
+  -webkit-backdrop-filter: blur(18px) !important;
+  border-color: rgba(200, 181, 141, 0.20) !important;
+  color: #252525 !important;
+  box-shadow: 0 10px 35px rgba(70, 65, 55, 0.06) !important;
+}
+
+.workstation-mode .bg-slate-50,
+.workstation-mode .bg-slate-50\/70,
+.workstation-mode .bg-slate-50\/80,
+.workstation-mode .bg-slate-50\/90,
+.workstation-mode .bg-slate-100,
+.workstation-mode .bg-slate-100\/80,
+.workstation-mode .bg-slate-100\/90,
+.workstation-mode .bg-gray-50,
+.workstation-mode .bg-gray-100 {
+  background-color: #EDE8DE !important;
+  border-color: rgba(200, 181, 141, 0.25) !important;
+  color: #252525 !important;
+}
+
+.workstation-mode .text-slate-900,
+.workstation-mode .text-slate-800,
+.workstation-mode .text-slate-700,
+.workstation-mode .text-gray-900,
+.workstation-mode .text-gray-800,
+.workstation-mode .text-gray-700 {
+  color: #252525 !important;
+}
+
+.workstation-mode .text-slate-600,
+.workstation-mode .text-slate-500,
+.workstation-mode .text-gray-600,
+.workstation-mode .text-gray-500 {
+  color: #6F6D69 !important;
+}
+
+.workstation-mode .text-slate-400,
+.workstation-mode .text-gray-400 {
+  color: #999690 !important;
+}
+
+/* Transform standard blue buttons into Warm Champagne Studio actions */
+.workstation-mode .bg-sky-600,
+.workstation-mode .bg-sky-500,
+.workstation-mode .bg-blue-600,
+.workstation-mode .bg-blue-700,
+.workstation-mode .bg-indigo-600,
+.workstation-mode .bg-gradient-to-r.from-sky-600,
+.workstation-mode .bg-gradient-to-r.from-sky-500,
+.workstation-mode .bg-gradient-to-tr.from-sky-600 {
+  background: linear-gradient(135deg, #C8B58D 0%, #B8A378 100%) !important;
+  color: #252525 !important;
+  font-weight: 800 !important;
+  border: 1px solid rgba(200, 181, 141, 0.40) !important;
+  box-shadow: 0 4px 15px rgba(200, 181, 141, 0.25) !important;
+}
+
+.workstation-mode .bg-sky-600:hover,
+.workstation-mode .bg-sky-500:hover,
+.workstation-mode .bg-blue-600:hover,
+.workstation-mode .bg-blue-700:hover,
+.workstation-mode .bg-indigo-600:hover {
+  background: linear-gradient(135deg, #D6C49D 0%, #C8B58D 100%) !important;
+  color: #111111 !important;
+  box-shadow: 0 6px 20px rgba(200, 181, 141, 0.35) !important;
+}
+
+.workstation-mode .bg-sky-50,
+.workstation-mode .bg-sky-50\/40,
+.workstation-mode .bg-sky-50\/50,
+.workstation-mode .bg-sky-50\/80,
+.workstation-mode .bg-sky-100,
+.workstation-mode .bg-sky-500\/10,
+.workstation-mode .bg-sky-500\/20 {
+  background-color: rgba(200, 181, 141, 0.15) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border-color: rgba(200, 181, 141, 0.30) !important;
+  color: #4A3E28 !important;
+}
+
+.workstation-mode .text-sky-600,
+.workstation-mode .text-sky-700,
+.workstation-mode .text-sky-800,
+.workstation-mode .text-sky-400,
+.workstation-mode .text-blue-600,
+.workstation-mode .text-blue-700 {
+  color: #4A3E28 !important;
+}
+
+.workstation-mode .bg-emerald-50,
+.workstation-mode .bg-emerald-50\/40,
+.workstation-mode .bg-emerald-50\/80,
+.workstation-mode .bg-emerald-100 {
+  background-color: rgba(143, 168, 141, 0.15) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border-color: rgba(143, 168, 141, 0.30) !important;
+  color: #40573F !important;
+}
+
+.workstation-mode .bg-amber-50,
+.workstation-mode .bg-amber-50\/80,
+.workstation-mode .bg-amber-100 {
+  background-color: rgba(197, 166, 106, 0.15) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border-color: rgba(197, 166, 106, 0.30) !important;
+  color: #635028 !important;
+}
+
+button {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.workstation-mode table thead tr {
+  background-color: #EDE8DE !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.workstation-mode tbody tr {
+  border-bottom-color: rgba(70, 65, 55, 0.08) !important;
+}
+
+.workstation-mode tbody tr:hover {
+  background-color: rgba(200, 181, 141, 0.08) !important;
+}
+
+.workstation-mode .fixed.inset-0.bg-black\/50,
+.workstation-mode .fixed.inset-0.bg-slate-900\/60,
+.workstation-mode .fixed.inset-0.bg-slate-950\/80 {
+  background-color: rgba(37, 37, 37, 0.40) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+}
+
+.workstation-mode input:not([type="checkbox"]):not([type="radio"]),
+.workstation-mode select,
+.workstation-mode textarea {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(70, 65, 55, 0.12) !important;
+  color: #252525 !important;
+}
+
+.workstation-mode input:focus,
+.workstation-mode select:focus,
+.workstation-mode textarea:focus {
+  background-color: #ffffff !important;
+  border-color: #C8B58D !important;
+  box-shadow: 0 0 15px rgba(200, 181, 141, 0.25) !important;
+}
