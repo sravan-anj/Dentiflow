@@ -47,6 +47,7 @@ export const SignInPage: React.FC<SignInPageProps> = ({
         setError(`Terminal Suspended: Too many failed security attempts. Wait ${status.remainingSeconds}s.`);
       } else {
         setLockoutRemaining(0);
+        setError(prev => (prev.startsWith('Terminal Suspended') || prev.startsWith('Security Lockout') ? '' : prev));
       }
     };
     checkLockout();
@@ -57,6 +58,8 @@ export const SignInPage: React.FC<SignInPageProps> = ({
   // Quick fill helper for demo accounts
   const handleQuickFill = (role: UserRole) => {
     setSelectedRoleHint(role);
+    SecurityService.clearFailedAttempts();
+    setLockoutRemaining(0);
     setError('');
     if (role === 'doctor') {
       setIdentifier('doctor@gmail.com');
@@ -68,6 +71,12 @@ export const SignInPage: React.FC<SignInPageProps> = ({
       setIdentifier('patient@gmail.com');
       setPassword('patient123');
     }
+  };
+
+  const handleResetLockout = () => {
+    SecurityService.clearFailedAttempts();
+    setLockoutRemaining(0);
+    setError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -227,9 +236,20 @@ export const SignInPage: React.FC<SignInPageProps> = ({
 
           {/* Error Message Banner */}
           {error && (
-            <div className="mb-4 p-3 rounded-xl bg-[#B97870]/10 border border-[#B97870]/30 text-[#632924] text-xs flex items-start gap-2 backdrop-blur-md">
-              <AlertCircle className="w-4 h-4 text-[#B97870] shrink-0 mt-0.5" />
-              <span>{error}</span>
+            <div className="mb-4 p-3 rounded-xl bg-[#B97870]/10 border border-[#B97870]/30 text-[#632924] text-xs flex items-start justify-between gap-2 backdrop-blur-md">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-[#B97870] shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+              {lockoutRemaining > 0 && (
+                <button
+                  type="button"
+                  onClick={handleResetLockout}
+                  className="shrink-0 text-[10px] font-bold text-[#8FA88D] bg-white/90 hover:bg-white border border-[#8FA88D]/40 px-2 py-0.5 rounded-md cursor-pointer transition shadow-2xs"
+                >
+                  Unlock Now
+                </button>
+              )}
             </div>
           )}
 

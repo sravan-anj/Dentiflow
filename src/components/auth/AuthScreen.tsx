@@ -81,6 +81,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         setSecurityError(`Security Lockout Active: Terminal suspended. Wait ${status.remainingSeconds}s.`);
       } else {
         setLockoutRemaining(0);
+        setSecurityError(prev => (prev.startsWith('Security Lockout') ? '' : prev));
       }
     };
     checkLockout();
@@ -91,6 +92,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const fillDemo = (fillRole: UserRole) => {
     setTab('signin');
     setRole(fillRole);
+    SecurityService.clearFailedAttempts();
+    setLockoutRemaining(0);
     setSecurityError('');
     if (fillRole === 'doctor') {
       setEmail('doctor@gmail.com');
