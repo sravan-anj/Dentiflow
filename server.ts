@@ -803,22 +803,133 @@ app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
   res.json(genericResponse);
 });
 
+export function normalizeTokenVariants(raw: string): string[] {
+  if (!raw || typeof raw !== 'string') return [];
+  const trimmed = raw.trim();
+  let decoded = trimmed;
+  try {
+    decoded = decodeURIComponent(trimmed);
+  } catch {}
+
+  const cleaned = decoded.replace(/[.,\s\/>\)"']+$/, '').replace(/^[<"'\s]+/, '').trim();
+  const rawCleaned = trimmed.replace(/[.,\s\/>\)"']+$/, '').replace(/^[<"'\s]+/, '').trim();
+
+  const variants = new Set<string>([trimmed, decoded, cleaned, rawCleaned].filter(s => Boolean(s && s.length > 0)));
+  return Array.from(variants);
+}
+
+export function findResetEntry(token: string): { hash: string; entry: ResetEntry } | null {
+  if (!token || typeof token !== 'string' || !token.trim()) return null;
+  const variants = normalizeTokenVariants(token);
+  const resetStore = loadResetStore();
+
+  for (const variant of variants) {
+    // 1. HMAC-SHA256 with RESET_SECRET_KEY
+    const hmacVal = sha256Token(variant);
+    if (resetStore.has(hmacVal)) {
+      const entry = resetStore.get(hmacVal)!;
+      if (!entry.used && Date.now() <= entry.expiresAt) return { hash: hmacVal, entry };
+    }
+
+    // 2. Plain SHA-256
+    const shaVal = crypto.createHash('sha256').update(variant).digest('hex');
+    if (resetStore.has(shaVal)) {
+      const entry = resetStore.get(shaVal)!;
+      if (!entry.used && Date.now() <= entry.expiresAt) return { hash: shaVal, entry };
+    }
+
+    // 3. Direct match by hash or entry tokenHash
+    for (const [hash, entry] of resetStore) {
+      if (
+        (hash === variant || entry.tokenHash === variant || entry.tokenHash === hmacVal || entry.tokenHash === shaVal) &&
+        !entry.used &&
+        Date.now() <= entry.expiresAt
+      ) {
+        return { hash, entry };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * POST /api/auth/forgot-password
+ */
+app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
+  const { email } = req.body as { email?: string };
+
+  const genericResponse = {
+    message: 'If an account exists for this email, password reset instructions have been sent.',
+  };
+
+  const cleanEmail = (email || '').trim().toLowerCase();
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    res.json(genericResponse);
+    return;
+  }
+
+  const users = loadUserStore();
+  let user = users.find(u => u.email.toLowerCase() === cleanEmail);
+
+  if (!user) {
+    res.json(genericResponse);
+    return;
+  }
+
+  const plainToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = sha256Token(plainToken);
+
+  const resetStore = loadResetStore();
+  const now = Date.now();
+  const expiresAt = now + 30 * 60 * 1000;
+
+  // Prune any expired or already-used tokens, and limit to recent 5 tokens for this user
+  const userExistingEntries: string[] = [];
+  for (const [hash, entry] of resetStore) {
+    if (entry.userId === user.id || entry.email.toLowerCase() === cleanEmail) {
+      if (now > entry.expiresAt || entry.used) {
+        resetStore.delete(hash);
+      } else {
+        userExistingEntries.push(hash);
+      }
+    }
+  }
+
+  // If user requested > 5 unexpired tokens, remove the oldest to prevent spam
+  if (userExistingEntries.length >= 5) {
+    const oldestHash = userExistingEntries[0];
+    resetStore.delete(oldestHash);
+  }
+
+  resetStore.set(tokenHash, {
+    userId: user.id,
+    email: cleanEmail,
+    tokenHash,
+    createdAt: now,
+    expiresAt,
+    used: false,
+  });
+
+  saveResetStore(resetStore);
+
+  try {
+    await sendResetEmail(cleanEmail, plainToken);
+  } catch (err) {
+    console.error('[Dentiflow] Error during email dispatch:', err);
+  }
+
+  res.json(genericResponse);
+});
+
 /**
  * POST /api/auth/validate-reset-token
  */
 app.post('/api/auth/validate-reset-token', (req: Request, res: Response) => {
   const { token } = req.body as { token?: string };
+  const found = findResetEntry(token || '');
 
-  if (!token || typeof token !== 'string' || !token.trim()) {
-    res.status(400).json({ valid: false, error: 'Missing or invalid reset token.' });
-    return;
-  }
-
-  const tokenHash = sha256Token(token.trim());
-  const resetStore = loadResetStore();
-  const entry = resetStore.get(tokenHash);
-
-  if (!entry || entry.used || Date.now() > entry.expiresAt) {
+  if (!found || found.entry.used || Date.now() > found.entry.expiresAt) {
     res.json({ valid: false, error: 'This password reset link is invalid or has expired.' });
     return;
   }
@@ -830,13 +941,14 @@ app.post('/api/auth/validate-reset-token', (req: Request, res: Response) => {
  * POST /api/auth/reset-password
  */
 app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
-  const { token, new_password, newPassword } = req.body as {
+  const { token, new_password, newPassword, password } = req.body as {
     token?: string;
     new_password?: string;
     newPassword?: string;
+    password?: string;
   };
 
-  const targetPassword = new_password || newPassword;
+  const targetPassword = new_password || newPassword || password;
 
   if (!targetPassword || typeof targetPassword !== 'string') {
     res.status(400).json({ error: 'Please enter a valid new password.' });
@@ -848,19 +960,14 @@ app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
     return;
   }
 
-  if (!token || typeof token !== 'string' || !token.trim()) {
+  const found = findResetEntry(token || '');
+
+  if (!found) {
     res.status(400).json({ error: 'This password reset link is invalid or has expired.' });
     return;
   }
 
-  const tokenHash = sha256Token(token.trim());
-  const resetStore = loadResetStore();
-  const entry = resetStore.get(tokenHash);
-
-  if (!entry) {
-    res.status(400).json({ error: 'This password reset link is invalid or has expired.' });
-    return;
-  }
+  const { hash: tokenKey, entry } = found;
 
   if (entry.used) {
     res.status(400).json({ error: 'This password reset link has already been used. Please request a new one.' });
@@ -869,14 +976,22 @@ app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
 
   const now = Date.now();
   if (now > entry.expiresAt) {
-    resetStore.delete(tokenHash);
+    const resetStore = loadResetStore();
+    resetStore.delete(tokenKey);
     saveResetStore(resetStore);
     res.status(400).json({ error: 'This password reset link is invalid or has expired.' });
     return;
   }
 
+  // Invalidate all tokens for this user upon successful reset
+  const resetStore = loadResetStore();
   entry.used = true;
-  resetStore.delete(tokenHash);
+  resetStore.delete(tokenKey);
+  for (const [k, e] of resetStore) {
+    if (e.userId === entry.userId || e.email.toLowerCase() === entry.email.toLowerCase()) {
+      resetStore.delete(k);
+    }
+  }
   saveResetStore(resetStore);
 
   const { salt, hash, iterations } = await pbkdf2Hash(targetPassword);

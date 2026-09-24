@@ -37,19 +37,51 @@ interface ResetPasswordPageProps {
 
 type Status = 'validating' | 'ready' | 'submitting' | 'success' | 'invalid_token';
 
+function extractTokenFromLocation(): string {
+  if (typeof window === 'undefined') return '';
+
+  const clean = (val: string): string => {
+    try {
+      val = decodeURIComponent(val);
+    } catch {}
+    return val.replace(/[.,\s\/>\)"']+$/, '').replace(/^[<"'\s]+/, '').trim();
+  };
+
+  // 1. Search Query (?token=...)
+  try {
+    const searchParams = new URLSearchParams(window.location.search);
+    const fromSearch = searchParams.get('token') || searchParams.get('reset_token') || searchParams.get('t');
+    if (fromSearch) return clean(fromSearch);
+  } catch {}
+
+  // 2. Hash Query (#/reset-password?token=... or #token=...)
+  try {
+    const hash = window.location.hash;
+    if (hash.includes('token=')) {
+      const queryPart = hash.includes('?') ? hash.split('?')[1] : hash.substring(1);
+      const hashParams = new URLSearchParams(queryPart);
+      const fromHash = hashParams.get('token') || hashParams.get('reset_token') || hashParams.get('t');
+      if (fromHash) return clean(fromHash);
+    }
+  } catch {}
+
+  // 3. Fallback regex on window.location.href
+  try {
+    const match = window.location.href.match(/[?&#]token=([^&#]+)/i);
+    if (match && match[1]) {
+      return clean(match[1]);
+    }
+  } catch {}
+
+  return '';
+}
+
 export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
   onNavigateSignIn,
   onNavigateForgotPassword,
   onNavigateLanding,
 }) => {
-  // Extract token directly from window.location.search
-  const [token] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      return new URLSearchParams(window.location.search).get('token') || '';
-    }
-    return '';
-  });
-
+  const [token, setToken] = useState<string>(extractTokenFromLocation);
   const [status, setStatus] = useState<Status>('validating');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -58,9 +90,18 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
   const [errorMsg, setErrorMsg] = useState('');
   const [countdown, setCountdown] = useState(3);
 
-  // Validate token on mount
+  // Sync token from URL if it updates
   useEffect(() => {
-    if (!token || !token.trim()) {
+    const extracted = extractTokenFromLocation();
+    if (extracted && extracted !== token) {
+      setToken(extracted);
+    }
+  }, [token]);
+
+  // Validate token on mount and token changes
+  useEffect(() => {
+    const activeToken = token || extractTokenFromLocation();
+    if (!activeToken || !activeToken.trim()) {
       setStatus('invalid_token');
       setErrorMsg('This password reset link is invalid or missing. Please request a new one.');
       return;
@@ -69,14 +110,21 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
     let isMounted = true;
 
     (async () => {
-      const result = await AuthService.validateResetToken(token);
-      if (!isMounted) return;
+      try {
+        const result = await AuthService.validateResetToken(activeToken);
+        if (!isMounted) return;
 
-      if (result.valid) {
+        if (result.valid) {
+          setStatus('ready');
+          setErrorMsg('');
+        } else {
+          setStatus('invalid_token');
+          setErrorMsg(result.error || 'This password reset link is invalid or has expired.');
+        }
+      } catch {
+        if (!isMounted) return;
+        // In case of network blip, allow form to be ready
         setStatus('ready');
-      } else {
-        setStatus('invalid_token');
-        setErrorMsg(result.error || 'This password reset link is invalid or has expired.');
       }
     })();
 
@@ -108,7 +156,8 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
     e.preventDefault();
     setErrorMsg('');
 
-    if (!token) {
+    const activeToken = token || extractTokenFromLocation();
+    if (!activeToken) {
       setErrorMsg('Missing password reset token. Please request a new link.');
       return;
     }
@@ -126,7 +175,7 @@ export const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({
     setStatus('submitting');
 
     try {
-      const result = await AuthService.completePasswordReset(token, newPassword);
+      const result = await AuthService.completePasswordReset(activeToken, newPassword);
 
       if (!result.success) {
         setErrorMsg(result.error || 'This password reset link is invalid or has expired.');
