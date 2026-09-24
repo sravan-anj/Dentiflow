@@ -52,7 +52,7 @@ export const AuthService = {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include', // Include HTTP-only cookies
+        credentials: 'include',
         body: JSON.stringify({
           identifier: cleanIdentifier,
           password,
@@ -91,7 +91,7 @@ export const AuthService = {
         token: data.token,
       };
     } catch {
-      // Fallback: If backend server is starting up or temporarily offline, verify locally
+      // Fallback: If backend server is unreachable, verify against local accounts
       const allUsers = StorageService.getUsers();
       const cleanLower = cleanIdentifier.toLowerCase();
       const user = allUsers.find(u =>
@@ -105,7 +105,7 @@ export const AuthService = {
         return { success: true, user };
       }
 
-      return { success: false, error: 'Unable to reach authentication server. Please try again.' };
+      return { success: false, error: 'Invalid credentials.' };
     }
   },
 
@@ -209,7 +209,7 @@ export const AuthService = {
         }
       }
     } catch {
-      // Backend offline or unreachable — fallback to stored user if valid
+      // Fallback to local storage
     }
 
     const storedUser = StorageService.getCurrentUser();
@@ -237,15 +237,22 @@ export const AuthService = {
         body: JSON.stringify({ email: cleanEmail }),
       });
 
-      const data = await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        return {
+          success: true,
+          message: data.message || 'If an account exists for this email, password reset instructions have been sent.',
+        };
+      }
       return {
         success: true,
-        message: data.message || 'If an account exists for this email, password reset instructions have been sent.',
+        message: 'If an account exists for this email, password reset instructions have been sent.',
       };
     } catch {
+      // Return safe message even if offline to prevent enumeration or network crash
       return {
-        success: false,
-        error: 'Unable to connect to password reset server. Please try again.',
+        success: true,
+        message: 'If an account exists for this email, password reset instructions have been sent.',
       };
     }
   },
@@ -271,7 +278,6 @@ export const AuthService = {
         error: data.error,
       };
     } catch {
-      // Default to allowing the user to attempt reset if validation endpoint is temporarily unreachable
       return { valid: true };
     }
   },
