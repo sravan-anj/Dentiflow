@@ -22,6 +22,9 @@ import { AuthScreen } from './components/auth/AuthScreen';
 import { LandingPage } from './components/landing/LandingPage';
 import { SignInPage } from './components/auth/SignInPage';
 import { SignUpPage } from './components/auth/SignUpPage';
+import { ForgotPasswordPage } from './components/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from './components/auth/ResetPasswordPage';
+import { AuthService } from './utils/authService';
 import { Sidebar, ActiveTab } from './components/layout/Sidebar';
 import { Navbar } from './components/layout/Navbar';
 import { DashboardView } from './components/dashboard/DashboardView';
@@ -54,6 +57,15 @@ function MainApp() {
   // Authentication State
   const [currentUser, setCurrentUser] = useState<User | null>(() => StorageService.getCurrentUser());
   const [adminOriginalUser, setAdminOriginalUser] = useState<User | null>(null);
+
+  // Sync session with backend on initial load
+  useEffect(() => {
+    AuthService.checkSession().then(user => {
+      if (user) {
+        setCurrentUser(user);
+      }
+    });
+  }, []);
 
   const handleAccessAccountFromAdmin = (targetUser: User) => {
     const isMasterAdmin = currentUser?.role === 'admin' || adminOriginalUser?.role === 'admin';
@@ -94,23 +106,39 @@ function MainApp() {
   });
 
   // Public View Routing (Landing Page vs Dedicated Auth Pages)
-  const [publicView, setPublicView] = useState<'landing' | 'signin' | 'signup'>(() => {
+  type PublicViewType = 'landing' | 'signin' | 'signup' | 'forgot-password' | 'reset-password';
+
+  const getInitialPublicView = (): PublicViewType => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
+      const hasResetToken = new URLSearchParams(window.location.search).has('token');
+      if (path.includes('reset-password') || hasResetToken) return 'reset-password';
+      if (path.includes('forgot-password') || path.includes('forgot')) return 'forgot-password';
       if (path.includes('signin') || path.includes('login')) return 'signin';
       if (path.includes('signup') || path.includes('register')) return 'signup';
       if (path.includes('book') || path.includes('appointment')) return 'signin';
     }
     return 'landing';
-  });
+  };
 
-  const handleNavigateAuth = (mode: 'landing' | 'signin' | 'signup') => {
+  const [publicView, setPublicView] = useState<PublicViewType>(getInitialPublicView);
+
+  const handleNavigateAuth = (mode: PublicViewType) => {
     setPublicView(mode);
     const path = mode === 'landing' ? '/' : `/${mode}`;
     try {
       window.history.pushState(null, '', path);
     } catch (_) {}
   };
+
+  // Listen to browser back/forward history navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      setPublicView(getInitialPublicView());
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Booking CTA Handler: Enforces authentication gate for appointment booking
   const handleOpenBookingRequest = useCallback(() => {
@@ -418,20 +446,13 @@ function MainApp() {
   };
 
   const handleLogout = () => {
-    SecurityService.logEvent({
-      type: 'AUTH_LOGOUT',
-      actor: currentUser?.name || 'User',
-      targetRole: currentUser?.role || 'user',
-      details: 'User voluntarily signed out of terminal',
-      status: 'SUCCESS'
-    });
-    StorageService.clearCurrentUser();
+    AuthService.logout(currentUser);
     setCurrentUser(null);
     handleNavigateAuth('landing');
     showToast('Signed out of DentiFlow', 'info');
   };
 
-  // If user not authenticated, render Level 10 Public Ecosystem (Landing, Sign-in, or Sign-up)
+  // If user not authenticated, render Public Ecosystem (Landing, Sign-in, Sign-up, Forgot Password, or Reset Password)
   if (!currentUser) {
     return (
       <div className="landing-ecosystem min-h-screen bg-slate-950 text-white">
@@ -440,12 +461,24 @@ function MainApp() {
             onLogin={setCurrentUser}
             onNavigateLanding={() => handleNavigateAuth('landing')}
             onNavigateSignUp={() => handleNavigateAuth('signup')}
+            onNavigateForgotPassword={() => handleNavigateAuth('forgot-password')}
           />
         ) : publicView === 'signup' ? (
           <SignUpPage
             onLogin={setCurrentUser}
             onNavigateLanding={() => handleNavigateAuth('landing')}
             onNavigateSignIn={() => handleNavigateAuth('signin')}
+          />
+        ) : publicView === 'forgot-password' ? (
+          <ForgotPasswordPage
+            onNavigateSignIn={() => handleNavigateAuth('signin')}
+            onNavigateLanding={() => handleNavigateAuth('landing')}
+          />
+        ) : publicView === 'reset-password' ? (
+          <ResetPasswordPage
+            onNavigateSignIn={() => handleNavigateAuth('signin')}
+            onNavigateForgotPassword={() => handleNavigateAuth('forgot-password')}
+            onNavigateLanding={() => handleNavigateAuth('landing')}
           />
         ) : (
           <LandingPage

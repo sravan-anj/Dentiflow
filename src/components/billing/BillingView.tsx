@@ -277,9 +277,9 @@ export const BillingView: React.FC<BillingViewProps> = ({
         patientId: updatedInvoice.patientId,
         patientName: updatedInvoice.patientName,
         amount: payAmt,
-        paymentMethod: paymentMethod,
+        paymentMethod: paymentMethod === 'UPI / QR' ? 'UPI' : (paymentMethod as any),
         transactionRef: demoTxRef,
-        status: 'completed',
+        status: 'successful',
         timestamp: new Date().toISOString()
       };
       StorageService.addTransaction(newTx);
@@ -302,7 +302,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
         patientId: selectedInvoiceForPayment.patientId,
         patientName: selectedInvoiceForPayment.patientName,
         amount: paymentAmount,
-        paymentMethod: paymentMethod,
+        paymentMethod: paymentMethod === 'UPI / QR' ? 'UPI' : (paymentMethod as any),
         transactionRef: utrNumber || posAuthCode || cashVoucherId || insuranceClaimAuthCode || 'CANCELLED',
         status: 'cancelled',
         timestamp: new Date().toISOString()
