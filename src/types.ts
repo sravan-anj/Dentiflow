@@ -2,9 +2,11 @@ export type UserRole = 'doctor' | 'admin' | 'patient';
 
 export interface User {
   id: string;
+  oralixId: string;
   name: string;
   email: string;
   role: UserRole;
+  passwordHash?: string;
   avatarText: string;
   phone?: string;
   specialization?: string;
@@ -13,6 +15,7 @@ export interface User {
   licenseNumber?: string;
   bio?: string;
   joinedDate?: string;
+  createdAt?: string;
   status?: 'active' | 'on_leave' | 'inactive';
   address?: string;
   emergencyContact?: string;

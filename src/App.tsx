@@ -18,6 +18,7 @@ import {
   ToothConditionType
 } from './types';
 import { ToastProvider, useToast } from './components/common/Toast';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { AuthScreen } from './components/auth/AuthScreen';
 import { LandingPage } from './components/landing/LandingPage';
 import { SignInPage } from './components/auth/SignInPage';
@@ -54,6 +55,40 @@ function MainApp() {
   // Authentication State
   const [currentUser, setCurrentUser] = useState<User | null>(() => StorageService.getCurrentUser());
   const [adminOriginalUser, setAdminOriginalUser] = useState<User | null>(null);
+
+  // Startup Session Persistence & Canonical User Sync
+  useEffect(() => {
+    const storedUser = StorageService.getCurrentUser();
+    if (storedUser) {
+      const allUsers = StorageService.getUsers();
+      const canonicalUser = allUsers.find(
+        u => (u.id && u.id === storedUser.id) ||
+             (u.email && storedUser.email && u.email.toLowerCase().trim() === storedUser.email.toLowerCase().trim()) ||
+             (u.oralixId && storedUser.oralixId && u.oralixId.toLowerCase().trim() === storedUser.oralixId.toLowerCase().trim())
+      );
+      if (canonicalUser) {
+        setCurrentUser(canonicalUser);
+        StorageService.saveCurrentUser(canonicalUser);
+      } else {
+        StorageService.clearCurrentUser();
+        setCurrentUser(null);
+      }
+    }
+  }, []);
+
+  // Fallback guard for unknown or corrupt user role
+  useEffect(() => {
+    if (currentUser) {
+      const validRoles: UserRole[] = ['patient', 'doctor', 'admin'];
+      if (!currentUser.role || !validRoles.includes(currentUser.role as UserRole)) {
+        console.error('Invalid user role detected:', currentUser);
+        StorageService.clearCurrentUser();
+        setCurrentUser(null);
+        setPublicView('signin');
+        showToast('Invalid session role. Please sign in with a valid account.', 'error');
+      }
+    }
+  }, [currentUser, showToast]);
 
   const handleAccessAccountFromAdmin = (targetUser: User) => {
     const isMasterAdmin = currentUser?.role === 'admin' || adminOriginalUser?.role === 'admin';
@@ -112,7 +147,7 @@ function MainApp() {
     } catch (_) {}
   };
 
-  // Booking CTA Handler: Enforces authentication gate for appointment booking
+  // Booking CTA Handler: Enforces role-isolated appointment booking gate
   const handleOpenBookingRequest = useCallback(() => {
     if (!currentUser) {
       setPendingBookingIntent(true);
@@ -123,19 +158,47 @@ function MainApp() {
 
     if (currentUser.role === 'patient') {
       setActiveTab('appointments');
+      setIsBookingModalOpen(true);
+    } else if (currentUser.role === 'doctor') {
+      setIsBookingModalOpen(false);
+      setPendingBookingIntent(false);
+      setActiveTab('dashboard');
+      showToast(`Doctor Portal Active (${currentUser.name}): Patient booking is restricted to patient accounts.`, 'info');
+    } else if (currentUser.role === 'admin') {
+      setIsBookingModalOpen(false);
+      setPendingBookingIntent(false);
+      setActiveTab('dashboard');
+      showToast(`Admin Portal Active (${currentUser.name}): Patient booking is restricted to patient accounts.`, 'info');
     }
-    setIsBookingModalOpen(true);
   }, [currentUser, showToast]);
 
-  // Auto-resume appointment booking flow after successful sign in or sign up
+  // Role Security & Auto-Resume Intent Guard
   useEffect(() => {
-    if (currentUser && pendingBookingIntent) {
+    if (!currentUser) return;
+
+    if (currentUser.role !== 'patient') {
+      // NON-PATIENT (DOCTOR/ADMIN): Unconditionally clear patient booking state
+      setIsBookingModalOpen(false);
       setPendingBookingIntent(false);
-      if (currentUser.role === 'patient') {
-        setActiveTab('appointments');
+
+      // Route protection for direct booking URL attempts (/book, /appointment)
+      if (typeof window !== 'undefined') {
+        const path = window.location.pathname.toLowerCase();
+        if (path.includes('book') || path.includes('appointment')) {
+          try {
+            window.history.pushState(null, '', '/');
+          } catch (_) {}
+          setActiveTab('dashboard');
+        }
       }
-      setIsBookingModalOpen(true);
-      showToast(`Welcome back, ${currentUser.name}! Resuming your appointment booking.`, 'success');
+    } else {
+      // PATIENT USER: Auto-resume pending booking if started from Landing -> Book Appointment -> Login
+      if (pendingBookingIntent) {
+        setPendingBookingIntent(false);
+        setActiveTab('appointments');
+        setIsBookingModalOpen(true);
+        showToast(`Welcome back, ${currentUser.name}! Resuming your appointment booking.`, 'success');
+      }
     }
   }, [currentUser, pendingBookingIntent, showToast]);
 
@@ -323,10 +386,10 @@ function MainApp() {
     if (targetUser) {
       setCurrentUser(targetUser);
       StorageService.saveCurrentUser(targetUser);
+      setIsBookingModalOpen(false);
+      setPendingBookingIntent(false);
       showToast(`Security Clearance Verified: Switched to ${newRole.toUpperCase()} portal`, 'success');
-      if (newRole === 'patient') {
-        setActiveTab('dashboard');
-      }
+      setActiveTab('dashboard');
     }
   }, [showToast]);
 
@@ -428,7 +491,7 @@ function MainApp() {
     StorageService.clearCurrentUser();
     setCurrentUser(null);
     handleNavigateAuth('landing');
-    showToast('Signed out of DentiFlow', 'info');
+    showToast('Signed out of Oralix', 'info');
   };
 
   // If user not authenticated, render Level 10 Public Ecosystem (Landing, Sign-in, or Sign-up)
@@ -504,7 +567,7 @@ function MainApp() {
           searchQuery={globalSearch}
           setSearchQuery={setGlobalSearch}
           onOpenSearch={() => setIsSearchModalOpen(true)}
-          onOpenBooking={() => setIsBookingModalOpen(true)}
+          onOpenBooking={handleOpenBookingRequest}
           onOpenPortal={() => setIsQueuePortalOpen(true)}
           onOpenBackgroundManager={() => setIsBackgroundModalOpen(true)}
           onOpenSecurityAudit={() => setIsSecurityAuditOpen(true)}
@@ -705,15 +768,17 @@ function MainApp() {
         currentUserRole={currentUser.role}
       />
 
-      {/* Public Online Booking Modal */}
-      <PublicBookingModal
-        isOpen={isBookingModalOpen}
-        onClose={() => setIsBookingModalOpen(false)}
-        existingPatients={patients}
-        onBookAppointment={newApt => {
-          handleSaveAppointments([newApt, ...appointments]);
-        }}
-      />
+      {/* Public Online Booking Modal - Patient Context Only */}
+      {isBookingModalOpen && currentUser?.role === 'patient' && (
+        <PublicBookingModal
+          isOpen={isBookingModalOpen}
+          onClose={() => setIsBookingModalOpen(false)}
+          existingPatients={patients}
+          onBookAppointment={newApt => {
+            handleSaveAppointments([newApt, ...appointments]);
+          }}
+        />
+      )}
 
       {/* Public TV Queue Board Display */}
       {isQueuePortalOpen && (
@@ -743,8 +808,10 @@ function MainApp() {
 
 export default function App() {
   return (
-    <ToastProvider>
-      <MainApp />
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <MainApp />
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }

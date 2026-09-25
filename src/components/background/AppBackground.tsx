@@ -50,7 +50,7 @@ export const AppBackground: React.FC<AppBackgroundProps> = ({ config }) => {
   };
 
   return (
-    <aside aria-label="Application Background" className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none bg-slate-950 w-full h-full">
+    <aside aria-label="Application Background" className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none bg-slate-950 w-full h-full min-w-full min-h-full max-w-none max-h-none">
       {/* Background Media Layer (Video or Image) */}
       {isVideo ? (
         <video
@@ -61,10 +61,10 @@ export const AppBackground: React.FC<AppBackgroundProps> = ({ config }) => {
           muted
           playsInline
           poster="/realistic_human_molar.png"
-          className={`w-full h-full min-w-full min-h-full ${
+          className={`absolute inset-0 z-0 w-full h-full min-w-full min-h-full max-w-none max-h-none ${
             fitMode === 'contain'
               ? 'object-contain bg-slate-950'
-              : 'object-cover object-center sm:object-center'
+              : 'object-cover object-center origin-center scale-[1.14] block'
           } filter brightness-[1.14] contrast-[1.08] saturate-[1.12]`}
         >
           <source src={activeUrl} type="video/mp4" />
@@ -74,7 +74,7 @@ export const AppBackground: React.FC<AppBackgroundProps> = ({ config }) => {
       ) : (
         <img
           src={activeUrl}
-          alt="DentiFlow Clinic Background"
+          alt="Oralix Clinic Background"
           referrerPolicy="no-referrer"
           onError={(e) => {
             const target = e.currentTarget as HTMLImageElement;

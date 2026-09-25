@@ -399,13 +399,23 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 </span>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <span className="text-slate-600">Two-Factor Clearance</span>
-                <span className="font-bold text-emerald-700 text-[11px] flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                  PIN Clearance
-                </span>
-              </div>
+              {currentUser.role === 'patient' ? (
+                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-slate-600">Account Clearance</span>
+                  <span className="font-bold text-emerald-700 text-[11px] flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    Verified Patient Account
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-slate-600">Two-Factor Clearance</span>
+                  <span className="font-bold text-emerald-700 text-[11px] flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    PIN Clearance
+                  </span>
+                </div>
+              )}
 
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
                 <span className="text-slate-600">Session Verification</span>
@@ -436,7 +446,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <h3 className="text-xs font-bold text-white">Need Credentials Help?</h3>
             </div>
             <p className="text-[11px] text-sky-200 leading-relaxed">
-              If your DCI license number, clinical specialty, or staff permissions require updates, you can edit your profile above or contact practice administration at <span className="text-white font-semibold">admin@dentiflow.com</span>.
+              If your DCI license number, clinical specialty, or staff permissions require updates, you can edit your profile above or contact practice administration at <span className="text-white font-semibold">admin@oralix.com</span>.
             </p>
           </div>
         </div>

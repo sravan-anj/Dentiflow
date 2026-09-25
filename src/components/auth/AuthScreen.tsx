@@ -54,9 +54,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   onOpenThemeModal
 }) => {
   const [tab, setTab] = useState<'signin' | 'signup'>('signin');
-  const [role, setRole] = useState<UserRole>('doctor');
-  const [email, setEmail] = useState('doctor@gmail.com');
-  const [password, setPassword] = useState('doctor123');
+  const [selectedRole, setSelectedRole] = useState<UserRole>('patient');
+  const [oralixId, setOralixId] = useState('');
+  const [password, setPassword] = useState('');
   const [securityError, setSecurityError] = useState('');
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
 
@@ -88,96 +88,99 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  const fillDemo = (fillRole: UserRole) => {
-    setTab('signin');
-    setRole(fillRole);
-    setSecurityError('');
-    if (fillRole === 'doctor') {
-      setEmail('doctor@gmail.com');
-      setPassword('doctor123');
-    } else if (fillRole === 'patient') {
-      setEmail('patient@gmail.com');
-      setPassword('patient123');
-    } else if (fillRole === 'admin') {
-      setEmail('admin@gmail.com');
-      setPassword('admin123');
-    }
-  };
-
   const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();
     if (lockoutRemaining > 0) return;
+    setSecurityError('');
 
-    // Strict security authentication check
-    const creds = SecurityService.getCredentials();
+    const cleanInput = oralixId.trim();
     const cleanPass = password.trim();
 
-    let isValid = false;
-    if (role === 'doctor') {
-      isValid = cleanPass === 'doctor123' || cleanPass === creds.doctorPin || cleanPass.toUpperCase() === 'DOC-4482' || cleanPass.toUpperCase() === 'DOC-2026';
-    } else if (role === 'admin') {
-      isValid = cleanPass === 'admin123' || cleanPass === creds.adminPin || cleanPass.toUpperCase() === 'ADMIN-9042';
-    } else if (role === 'patient') {
-      isValid = cleanPass === 'patient123' || cleanPass === creds.patientDefaultPin || cleanPass === '123456';
+    if (!cleanInput || !cleanPass) {
+      setSecurityError('Please enter your Oralix ID / Email and password.');
+      return;
     }
 
-    if (!isValid) {
-      const { lockedOut, attemptsLeft } = SecurityService.recordFailedAttempt(email, role);
+    const allUsers = StorageService.getUsers();
+    const result = AuthService.verifyCredentials(cleanInput, cleanPass, allUsers, selectedRole);
+
+    if (!result.success || !result.user) {
+      const { lockedOut } = SecurityService.recordFailedAttempt(cleanInput || 'Unknown', selectedRole);
       if (lockedOut) {
-        setSecurityError('Access Denied: 3 incorrect attempts. Terminal protected for 30 seconds.');
+        setSecurityError('Access Denied: 3 incorrect attempts. Account protected for 30 seconds.');
         setLockoutRemaining(30);
       } else {
-        setSecurityError(`Unauthorized credentials for ${role.toUpperCase()} portal. ${attemptsLeft} attempt(s) remaining.`);
+        setSecurityError(result.message || 'Invalid Oralix ID / Email or password.');
       }
       return;
     }
 
-    // Success
+    const authenticatedUser = result.user;
     SecurityService.clearFailedAttempts();
     SecurityService.logEvent({
       type: 'AUTH_LOGIN',
-      actor: email,
-      targetRole: role,
-      details: `Successful authenticated sign-in to ${role.toUpperCase()} terminal`,
+      actor: authenticatedUser.name,
+      targetRole: authenticatedUser.role,
+      details: `Successful authenticated sign-in as ${authenticatedUser.oralixId || authenticatedUser.email} (${authenticatedUser.role.toUpperCase()})`,
       status: 'SUCCESS'
     });
 
-    const matchedUser = INITIAL_USERS.find(u => u.role === role) || {
-      id: `u-${role}`,
-      name: role === 'doctor' ? 'Dr. Ananya Sharma' : role === 'admin' ? 'Clinic Administrator' : 'Aravind Kumar',
-      email: email || `${role}@gmail.com`,
-      role,
-      avatarText: role === 'doctor' ? 'DR' : role === 'admin' ? 'AD' : 'PT',
-      patientId: role === 'patient' ? 'p-1' : undefined
-    };
-    onLogin(matchedUser);
+    StorageService.saveCurrentUser(authenticatedUser);
+    onLogin(authenticatedUser);
   };
 
   const handleSignUp = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!signupName.trim() || !signupPassword.trim()) {
+      setSecurityError('Please enter full name and password.');
+      return;
+    }
+
+    const existingUsers = StorageService.getUsers();
+    const newOralixId = generateOralixId(signupName.trim(), signupRole, existingUsers);
+    const hashedPassword = hashPassword(signupPassword.trim());
+
+    const initials = signupName
+      .trim()
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase();
+
     const newUser: User = {
-      id: `u-reg-${Date.now()}`,
-      name: signupName || 'New Clinician',
-      email: signupEmail,
+      id: signupRole === 'doctor' ? `u-doc-${Date.now()}` : `u-pat-${Date.now()}`,
+      oralixId: newOralixId,
+      name: signupName.trim(),
+      email: signupEmail.trim() || newOralixId,
       role: signupRole,
-      avatarText: signupName ? signupName.substring(0, 2).toUpperCase() : 'US',
-      phone: signupPhone,
-      patientId: signupRole === 'patient' ? 'p-1' : undefined
+      passwordHash: hashedPassword,
+      avatarText: initials || (signupRole === 'doctor' ? 'DR' : 'PT'),
+      phone: signupPhone.trim(),
+      patientId: signupRole === 'patient' ? `p-reg-${Date.now()}` : undefined,
+      specialization: signupRole === 'doctor' ? 'Endodontics & Restorative Dentistry' : undefined,
+      status: 'active',
+      createdAt: new Date().toISOString().split('T')[0]
     };
+
+    StorageService.updateUser(newUser);
+    StorageService.saveCurrentUser(newUser);
+
     SecurityService.logEvent({
       type: 'AUTH_LOGIN',
-      actor: signupName,
+      actor: newUser.name,
       targetRole: signupRole,
-      details: `Registered and signed in as ${signupRole}`,
+      details: `Registered new ${signupRole} account with Oralix ID ${newUser.oralixId}`,
       status: 'SUCCESS'
     });
+
     onLogin(newUser);
   };
 
   return (
     <div className="min-h-screen relative flex flex-col items-center overflow-x-hidden text-slate-900 selection:bg-sky-500/20">
       {/* Background Media Layer: Themed Operatory Examination (Denti 1) */}
-      <div className="fixed inset-0 -z-20 select-none pointer-events-none overflow-hidden bg-slate-950 w-full h-full">
+      <div className="fixed inset-0 -z-20 select-none pointer-events-none overflow-hidden bg-slate-950 w-full h-full min-w-full min-h-full max-w-none max-h-none">
         {isBgVideo ? (
           <video
             key={bgSource}
@@ -185,7 +188,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             loop
             muted
             playsInline
-            className="w-full h-full min-w-full min-h-full object-cover object-center filter brightness-[1.14] contrast-[1.08] saturate-[1.12]"
+            className="absolute inset-0 z-0 w-full h-full min-w-full min-h-full max-w-none max-h-none object-cover object-center origin-center scale-[1.14] block filter brightness-[1.14] contrast-[1.08] saturate-[1.12]"
           >
             <source src={bgSource} type="video/mp4" />
           </video>
@@ -216,7 +219,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               <ToothIcon size={20} />
             </span>
             <div>
-              <span className="text-slate-950 font-black text-lg tracking-tight">DentiFlow</span>
+              <span className="text-slate-950 font-black text-lg tracking-tight">Oralix</span>
               <span className="hidden sm:inline-block ml-2 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-900 border border-sky-400/30">
                 Clinic &amp; Portals
               </span>
@@ -265,7 +268,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         </div>
       </header>
 
-      {/* HERO SECTION with Existing Dentiflow Content and Auth Card */}
+      {/* HERO SECTION with Existing Oralix Content and Auth Card */}
       <section className="w-full min-h-[calc(100vh-64px)] flex flex-col justify-center items-center px-4 md:px-8 py-8 md:py-12 relative z-10">
         <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
           
@@ -275,7 +278,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               <span className="w-10 h-10 rounded-xl bg-white/40 backdrop-blur-md text-sky-700 flex items-center justify-center shadow-sm border border-white/60">
                 <ToothIcon size={22} />
               </span>
-              <span className="text-slate-900 tracking-tight font-extrabold text-2xl drop-shadow-xs">DentiFlow Clinic</span>
+              <span className="text-slate-900 tracking-tight font-extrabold text-2xl drop-shadow-xs">Oralix Clinic</span>
             </div>
 
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/40 backdrop-blur-md border border-white/60 text-sky-950 text-xs font-black w-fit mb-3 shadow-2xs">
@@ -365,7 +368,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               {tab === 'signin' ? (
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <h2 className="text-base font-extrabold text-slate-950">Sign in to DentiFlow</h2>
+                    <h2 className="text-base font-extrabold text-slate-950">Sign in to Oralix</h2>
                     <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/40 border border-white/60 text-sky-950 font-bold">
                       PORTAL GATEWAY
                     </span>
@@ -377,61 +380,49 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   <form onSubmit={handleSignIn} className="space-y-3.5">
                     {/* Role Selector Radio Group (Transparent Glass) */}
                     <div className="grid grid-cols-3 gap-2 p-1 bg-white/25 backdrop-blur-md rounded-xl border border-white/40 text-xs font-bold">
-                      <label className={`flex items-center justify-center py-2 rounded-lg cursor-pointer transition gap-1.5 ${
-                        role === 'doctor' ? 'bg-white/60 text-sky-950 border border-white/60 shadow-xs font-black' : 'text-slate-700 hover:bg-white/30'
-                      }`}>
-                        <input
-                          type="radio"
-                          name="role"
-                          value="doctor"
-                          checked={role === 'doctor'}
-                          onChange={() => { setRole('doctor'); setEmail('doctor@gmail.com'); setPassword('doctor123'); setSecurityError(''); }}
-                          className="sr-only"
-                        />
-                        <Stethoscope className="w-3.5 h-3.5 text-sky-700" />
-                        <span>Doctor</span>
-                      </label>
-
-                      <label className={`flex items-center justify-center py-2 rounded-lg cursor-pointer transition gap-1.5 ${
-                        role === 'patient' ? 'bg-white/60 text-sky-950 border border-white/60 shadow-xs font-black' : 'text-slate-700 hover:bg-white/30'
-                      }`}>
-                        <input
-                          type="radio"
-                          name="role"
-                          value="patient"
-                          checked={role === 'patient'}
-                          onChange={() => { setRole('patient'); setEmail('patient@gmail.com'); setPassword('patient123'); setSecurityError(''); }}
-                          className="sr-only"
-                        />
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedRole('patient'); setSecurityError(''); }}
+                        className={`flex items-center justify-center py-2 rounded-lg cursor-pointer transition gap-1.5 ${
+                          selectedRole === 'patient' ? 'bg-white/60 text-sky-950 border border-white/60 shadow-xs font-black' : 'text-slate-700 hover:bg-white/30'
+                        }`}
+                      >
                         <Users className="w-3.5 h-3.5 text-sky-700" />
                         <span>Patient</span>
-                      </label>
+                      </button>
 
-                      <label className={`flex items-center justify-center py-2 rounded-lg cursor-pointer transition gap-1.5 ${
-                        role === 'admin' ? 'bg-white/60 text-sky-950 border border-white/60 shadow-xs font-black' : 'text-slate-700 hover:bg-white/30'
-                      }`}>
-                        <input
-                          type="radio"
-                          name="role"
-                          value="admin"
-                          checked={role === 'admin'}
-                          onChange={() => { setRole('admin'); setEmail('admin@gmail.com'); setPassword('admin123'); setSecurityError(''); }}
-                          className="sr-only"
-                        />
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedRole('doctor'); setSecurityError(''); }}
+                        className={`flex items-center justify-center py-2 rounded-lg cursor-pointer transition gap-1.5 ${
+                          selectedRole === 'doctor' ? 'bg-white/60 text-sky-950 border border-white/60 shadow-xs font-black' : 'text-slate-700 hover:bg-white/30'
+                        }`}
+                      >
+                        <Stethoscope className="w-3.5 h-3.5 text-sky-700" />
+                        <span>Doctor</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedRole('admin'); setSecurityError(''); }}
+                        className={`flex items-center justify-center py-2 rounded-lg cursor-pointer transition gap-1.5 ${
+                          selectedRole === 'admin' ? 'bg-white/60 text-sky-950 border border-white/60 shadow-xs font-black' : 'text-slate-700 hover:bg-white/30'
+                        }`}
+                      >
                         <Lock className="w-3.5 h-3.5 text-sky-700" />
                         <span>Admin</span>
-                      </label>
+                      </button>
                     </div>
 
                     <div>
                       <label className="block text-xs font-bold text-slate-800 mb-1">
-                        Email address
+                        Oralix ID / Email
                       </label>
                       <input
-                        type="email"
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
-                        placeholder={`${role}@gmail.com`}
+                        type="text"
+                        value={oralixId}
+                        onChange={e => setOralixId(e.target.value)}
+                        placeholder={selectedRole === 'doctor' ? 'doctor@gmail.com or dr.ananya@oralix.com' : selectedRole === 'admin' ? 'admin@gmail.com or admin@oralix.com' : 'patient@gmail.com or aravind@oralix.com'}
                         required
                         className="w-full px-3 py-2 text-xs border border-white/50 rounded-xl bg-white/35 backdrop-blur-md text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500/30 focus:bg-white/55"
                       />
@@ -439,10 +430,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
                     <div>
                       <label className="block text-xs font-bold text-slate-800 mb-1 flex justify-between">
-                        <span>Password / Clearance PIN</span>
-                        <span className="text-[10px] text-sky-900 font-mono font-bold">
-                          {role === 'doctor' ? 'PIN: 4482 or doctor123' : role === 'admin' ? 'PIN: 9042 or admin123' : 'PIN: 123456 or patient123'}
-                        </span>
+                        <span>Account Password</span>
                       </label>
                       <div className="relative">
                         <input
@@ -463,40 +451,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       className="w-full py-2.5 px-4 bg-sky-600/30 hover:bg-sky-600/45 backdrop-blur-md border border-sky-400/50 disabled:opacity-50 text-slate-950 text-xs font-black rounded-xl transition shadow-xs mt-2 cursor-pointer flex items-center justify-center gap-1.5"
                     >
                       <ShieldCheck className="w-4 h-4 text-sky-700" />
-                      <span>Enter {role.toUpperCase()} Portal</span>
+                      <span>Enter {selectedRole.toUpperCase()} Portal</span>
                       <span>→</span>
                     </button>
                   </form>
-
-                  {/* Demo Quick-Fill Credentials (Transparent Buttons) */}
-                  <div className="mt-5 pt-3.5 border-t border-white/30">
-                    <p className="text-[11px] text-center text-slate-700 mb-2 font-bold">
-                      Quick-fill authorized demo accounts:
-                    </p>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => fillDemo('doctor')}
-                        className="py-1.5 px-2 text-xs border border-white/40 bg-white/25 hover:bg-white/45 backdrop-blur-md rounded-lg text-slate-900 font-bold transition cursor-pointer"
-                      >
-                        Doctor (Ananya)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => fillDemo('patient')}
-                        className="py-1.5 px-2 text-xs border border-white/40 bg-white/25 hover:bg-white/45 backdrop-blur-md rounded-lg text-slate-900 font-bold transition cursor-pointer"
-                      >
-                        Patient (Aravind)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => fillDemo('admin')}
-                        className="py-1.5 px-2 text-xs border border-white/40 bg-white/25 hover:bg-white/45 backdrop-blur-md rounded-lg text-slate-900 font-bold transition cursor-pointer"
-                      >
-                        Admin (Clinic)
-                      </button>
-                    </div>
-                  </div>
                 </div>
               ) : (
                 <div>
@@ -1061,7 +1019,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               <ToothIcon size={18} />
             </span>
             <div>
-              <p className="font-black text-slate-950 text-sm">DentiFlow Multispecialty Clinic</p>
+              <p className="font-black text-slate-950 text-sm">Oralix Multispecialty Clinic</p>
               <p className="text-slate-700">Centralized Digital Operatory &amp; Patient Records</p>
             </div>
           </div>
@@ -1081,7 +1039,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           </div>
 
           <p className="text-[11px] text-slate-600">
-            &copy; {new Date().getFullYear()} DentiFlow. High-Precision Dental Care.
+            &copy; {new Date().getFullYear()} Oralix. High-Precision Dental Care.
           </p>
         </div>
       </footer>

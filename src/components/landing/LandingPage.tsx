@@ -28,7 +28,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           loop
           muted
           playsInline
-          className="absolute inset-0 z-0 w-full h-full min-w-full min-h-full max-w-none max-h-none object-cover object-center origin-center scale-[1.10] block filter brightness-[1.14] contrast-[1.08] saturate-[1.12]"
+          className="absolute inset-0 z-0 w-full h-full min-w-full min-h-full max-w-none max-h-none object-cover object-center origin-center scale-[1.14] block filter brightness-[1.14] contrast-[1.08] saturate-[1.12]"
           poster="/realistic_human_molar.png"
         >
           <source src="/Denti video3.2.mp4" type="video/mp4" />

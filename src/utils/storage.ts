@@ -1,3 +1,4 @@
+import { hashPassword } from './authService';
 import {
   Patient,
   ToothFinding,
@@ -64,8 +65,70 @@ function safeSet<T>(key: string, value: T): void {
 }
 
 export const StorageService = {
-  // Users list
-  getUsers: (): User[] => safeGet<User[]>(STORAGE_KEYS.USERS, INITIAL_USERS),
+  // Users list with automatic migration for oralixId & passwordHash
+  getUsers: (): User[] => {
+    const raw = safeGet<User[]>(STORAGE_KEYS.USERS, INITIAL_USERS);
+    let list: User[] = Array.isArray(raw) ? [...raw] : [];
+    let modified = false;
+
+    INITIAL_USERS.forEach(initUser => {
+      const idx = list.findIndex(u => {
+        if (!u) return false;
+        if (u.id === initUser.id) return true;
+        if (u.email && initUser.email && u.email.toLowerCase().trim() === initUser.email.toLowerCase().trim()) return true;
+        if (u.oralixId && initUser.oralixId && u.oralixId.toLowerCase().trim() === initUser.oralixId.toLowerCase().trim()) return true;
+        return false;
+      });
+
+      if (idx === -1) {
+        list.push(initUser);
+        modified = true;
+      } else {
+        // Enforce canonical properties on built-in seeded accounts
+        const existing = list[idx];
+        let updated = false;
+        if (existing.role !== initUser.role) {
+          existing.role = initUser.role;
+          updated = true;
+        }
+        if (existing.email !== initUser.email) {
+          existing.email = initUser.email;
+          updated = true;
+        }
+        if (existing.oralixId !== initUser.oralixId) {
+          existing.oralixId = initUser.oralixId;
+          updated = true;
+        }
+        if (!existing.passwordHash || existing.passwordHash !== initUser.passwordHash) {
+          existing.passwordHash = initUser.passwordHash;
+          updated = true;
+        }
+        if (updated) modified = true;
+      }
+    });
+
+    // Ensure all other registered users have oralixId & passwordHash
+    const sanitized = list.map(u => {
+      let updated = false;
+      const copy = { ...u };
+      if (!copy.oralixId) {
+        copy.oralixId = generateOralixId(copy.name, copy.role, list);
+        updated = true;
+      }
+      if (!copy.passwordHash) {
+        const defaultPass = copy.role === 'doctor' ? 'doctor123' : copy.role === 'admin' ? 'admin123' : 'patient123';
+        copy.passwordHash = hashPassword(defaultPass);
+        updated = true;
+      }
+      if (updated) modified = true;
+      return copy;
+    });
+
+    if (modified || sanitized.length === 0) {
+      safeSet(STORAGE_KEYS.USERS, sanitized);
+    }
+    return sanitized;
+  },
   saveUsers: (users: User[]): void => safeSet(STORAGE_KEYS.USERS, users),
   updateUser: (updatedUser: User): void => {
     const users = StorageService.getUsers();

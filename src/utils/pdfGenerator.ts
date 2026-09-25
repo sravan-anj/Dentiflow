@@ -166,7 +166,7 @@ export function downloadTaxInvoicePdfBlob(invoice: Invoice, patient?: Patient | 
   pdf.addRect(0, 791.89, 595.28, 50, [0.01, 0.52, 0.78]); // Sky/Blue bar
 
   // Clinic Header Branding
-  pdf.addText('DENTIFLOW ADVANCED DENTAL MEDICINE', 40, 800, 16, 'Helvetica-Bold', [1, 1, 1]);
+  pdf.addText('ORALIX ADVANCED DENTAL MEDICINE', 40, 800, 16, 'Helvetica-Bold', [1, 1, 1]);
   pdf.addText('TAX INVOICE & OFFICIAL GST RECEIPT', 40, 765, 11, 'Helvetica-Bold', [0.01, 0.52, 0.78]);
   pdf.addText('DCI Reg: DCI-KA-2019-8842  |  GSTIN: 29AABCD1234E1Z5', 40, 750, 9, 'Helvetica', [0.4, 0.45, 0.5]);
   pdf.addText('Suite 402, 100 Feet Road, Medical Enclave, Bengaluru - 560038 | Tel: +91 80 2990 8820', 40, 738, 8, 'Helvetica', [0.5, 0.55, 0.6]);
@@ -270,11 +270,11 @@ export function downloadTaxInvoicePdfBlob(invoice: Invoice, patient?: Patient | 
   pdf.addText(`Method: ${invoice.paymentMethod || 'Online UPI / Card Settlement'}`, 40, currentY - 16, 8, 'Helvetica', [0.4, 0.45, 0.5]);
   pdf.addText('• Eligible for Section 80D Income Tax Medical Deduction.', 40, currentY - 30, 8, 'Helvetica', [0.4, 0.45, 0.5]);
   pdf.addText('• Accepted for direct cashless dental insurance reimbursement.', 40, currentY - 44, 8, 'Helvetica', [0.4, 0.45, 0.5]);
-  pdf.addText('• Computer generated tax receipt. Authenticated via DentiFlow API.', 40, currentY - 58, 8, 'Helvetica', [0.4, 0.45, 0.5]);
+  pdf.addText('• Computer generated tax receipt. Authenticated via Oralix API.', 40, currentY - 58, 8, 'Helvetica', [0.4, 0.45, 0.5]);
 
   // Bottom Footer
   pdf.addLine(40, 60, 555.28, 60, [0.85, 0.88, 0.92], 1);
-  pdf.addText('DentiFlow Dental Intelligence Platform • HIPAA & Digital Personal Data Protection Compliant', 40, 45, 8, 'Helvetica', [0.5, 0.55, 0.6]);
+  pdf.addText('Oralix Dental Intelligence Platform • HIPAA & Digital Personal Data Protection Compliant', 40, 45, 8, 'Helvetica', [0.5, 0.55, 0.6]);
   pdf.addText(`Generated for ${patientName} on ${new Date().toLocaleDateString('en-IN')}`, 40, 32, 8, 'Helvetica', [0.6, 0.65, 0.7]);
 
   pdf.download(`Tax_Invoice_${invoice.invoiceNumber}.pdf`);
@@ -290,7 +290,7 @@ export function downloadTreatmentPlanPdfBlob(plan: TreatmentPlan, patient?: Pati
   pdf.addRect(0, 791.89, 595.28, 50, [0.01, 0.52, 0.78]);
 
   // Header Title
-  pdf.addText('DENTIFLOW CLINICAL CARE ROADMAP', 40, 800, 16, 'Helvetica-Bold', [1, 1, 1]);
+  pdf.addText('ORALIX CLINICAL CARE ROADMAP', 40, 800, 16, 'Helvetica-Bold', [1, 1, 1]);
   pdf.addText('PATIENT TREATMENT PLAN & FINANCIAL ESTIMATE', 40, 765, 11, 'Helvetica-Bold', [0.01, 0.52, 0.78]);
   pdf.addText('Clinical Operatory Protocol  |  Practice License: DCI-KA-2019-8842', 40, 750, 9, 'Helvetica', [0.4, 0.45, 0.5]);
 
@@ -361,7 +361,7 @@ export function downloadTreatmentPlanPdfBlob(plan: TreatmentPlan, patient?: Pati
 
   // Footer
   pdf.addLine(40, 60, 555.28, 60, [0.85, 0.88, 0.92], 1);
-  pdf.addText('DentiFlow Dental Intelligence Platform • Official Clinical Treatment Plan Document', 40, 45, 8, 'Helvetica', [0.5, 0.55, 0.6]);
+  pdf.addText('Oralix Dental Intelligence Platform • Official Clinical Treatment Plan Document', 40, 45, 8, 'Helvetica', [0.5, 0.55, 0.6]);
   pdf.addText(`Plan Verification Hash ID: ${plan.id}`, 40, 32, 8, 'Helvetica', [0.6, 0.65, 0.7]);
 
   pdf.download(`Treatment_Plan_${plan.id}.pdf`);

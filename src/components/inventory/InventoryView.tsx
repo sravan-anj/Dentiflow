@@ -172,7 +172,7 @@ export const InventoryView: React.FC<InventoryViewProps> = ({ items, onSaveItems
                     <td className="py-3 px-4">
                       <span className="font-bold text-gray-900 block">{it.name}</span>
                       <span className="text-[10px] text-gray-400">
-                        {it.brand || 'DentiFlow Supply'} &bull; SKU: {it.sku}
+                        {it.brand || 'Oralix Supply'} &bull; SKU: {it.sku}
                       </span>
                     </td>
 

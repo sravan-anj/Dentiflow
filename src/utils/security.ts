@@ -150,7 +150,7 @@ export const SecurityService = {
     localStorage.removeItem(STORAGE_KEYS.LOCKOUT_EXPIRY);
   },
 
-  verifyPin: (targetRole: 'doctor' | 'admin' | 'patient', enteredPin: string, actorName = 'User'): { success: boolean; message: string } => {
+  verifyPin: (targetRole: 'doctor' | 'admin', enteredPin: string, actorName = 'User'): { success: boolean; message: string } => {
     const lockout = SecurityService.getLockoutStatus();
     if (lockout.isLockedOut) {
       return {
@@ -167,8 +167,6 @@ export const SecurityService = {
       isMatch = cleanPin === creds.adminPin || cleanPin.toUpperCase() === 'ADMIN-9042';
     } else if (targetRole === 'doctor') {
       isMatch = cleanPin === creds.doctorPin || cleanPin.toUpperCase() === 'DOC-2026' || cleanPin.toUpperCase() === 'DOC-4482';
-    } else if (targetRole === 'patient') {
-      isMatch = cleanPin === creds.patientDefaultPin || cleanPin === '123456';
     }
 
     if (isMatch) {

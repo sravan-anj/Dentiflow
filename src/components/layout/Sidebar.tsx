@@ -124,7 +124,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </span>
             <div className="flex flex-col">
               <span className="font-extrabold text-[#252525] text-sm tracking-tight leading-none font-display">
-                DentiFlow
+                Oralix
               </span>
               <span className="text-[10px] text-[#6F6D69] font-bold uppercase tracking-wider mt-1">
                 Clinic Management

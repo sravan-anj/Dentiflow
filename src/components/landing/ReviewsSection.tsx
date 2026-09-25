@@ -38,7 +38,7 @@ export const ReviewsSection: React.FC = () => {
       treatment: 'Molar Root Canal Therapy & Same-Day Zirconia Crown (#16)',
       doctor: 'Dr. Ananya Sharma',
       date: 'September 2026',
-      quote: 'I arrived at DentiFlow with unbearable throbbing molar pain that kept me awake for three nights. Dr. Ananya treated the canal using a Zeiss microscope with zero discomfort—I literally felt nothing during the entire procedure. In the very same visit, their 5-axis robotic milling unit produced a custom zirconia crown that fit like it had always been there.',
+      quote: 'I arrived at Oralix with unbearable throbbing molar pain that kept me awake for three nights. Dr. Ananya treated the canal using a Zeiss microscope with zero discomfort—I literally felt nothing during the entire procedure. In the very same visit, their 5-axis robotic milling unit produced a custom zirconia crown that fit like it had always been there.',
       highlight: '“Zero discomfort under the microscope. Walked out with my permanent crown in one visit.”',
       verifiedRecordId: 'DF-2026-001'
     },

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User, UserRole, Patient } from '../../types';
 import { StorageService } from '../../utils/storage';
+import { AuthService, generateOralixId, hashPassword } from '../../utils/authService';
 import { useToast } from '../common/Toast';
 import {
   ShieldCheck,
@@ -14,7 +15,9 @@ import {
   Sparkles,
   Lock,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  X
 } from 'lucide-react';
 
 interface AccountAccessViewProps {
@@ -32,6 +35,13 @@ export const AccountAccessView: React.FC<AccountAccessViewProps> = ({
   const [roleFilter, setRoleFilter] = useState<'all' | 'patient' | 'doctor' | 'admin'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Doctor provisioning state
+  const [isProvisionModalOpen, setIsProvisionModalOpen] = useState(false);
+  const [newDoctorName, setNewDoctorName] = useState('');
+  const [newSpecialization, setNewSpecialization] = useState('Endodontics & Restorative');
+  const [newRole, setNewRole] = useState<'doctor' | 'admin'>('doctor');
+  const [newPassword, setNewPassword] = useState('');
+
   // Strict role security: Block if non-admin renders this component
   if (currentUser.role !== 'admin') {
     return (
@@ -46,6 +56,45 @@ export const AccountAccessView: React.FC<AccountAccessViewProps> = ({
   }
 
   const allUsers = StorageService.getUsers();
+
+  const handleProvisionAccount = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDoctorName.trim() || !newPassword.trim()) {
+      showToast('Please enter full name and password.', 'error');
+      return;
+    }
+
+    const generatedOralixId = generateOralixId(newDoctorName.trim(), newRole, allUsers);
+    const hashedPassword = hashPassword(newPassword.trim());
+
+    const initials = newDoctorName
+      .trim()
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase();
+
+    const newUser: User = {
+      id: `u-${newRole}-${Date.now()}`,
+      oralixId: generatedOralixId,
+      name: newDoctorName.trim(),
+      email: generatedOralixId,
+      role: newRole,
+      passwordHash: hashedPassword,
+      avatarText: initials || (newRole === 'doctor' ? 'DR' : 'AD'),
+      specialization: newRole === 'doctor' ? newSpecialization : undefined,
+      status: 'active',
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+
+    StorageService.updateUser(newUser);
+    showToast(`Provisioned ${newRole.toUpperCase()} account: ${generatedOralixId}`, 'success');
+    
+    setIsProvisionModalOpen(false);
+    setNewDoctorName('');
+    setNewPassword('');
+  };
 
   const filteredUsers = allUsers.filter(u => {
     if (roleFilter !== 'all' && u.role !== roleFilter) return false;
@@ -92,6 +141,13 @@ export const AccountAccessView: React.FC<AccountAccessViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsProvisionModalOpen(true)}
+            className="btn-primary text-xs cursor-pointer flex items-center gap-1.5 py-1.5 px-3.5 shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Provision Doctor Account</span>
+          </button>
           <span className="px-3 py-1.5 rounded-xl bg-[#EDE8DE] border border-[#C8B58D]/30 text-xs font-bold text-[#252525] flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5 text-[#C8B58D]" />
             <span>{allUsers.length} Total Accounts</span>
@@ -267,6 +323,106 @@ export const AccountAccessView: React.FC<AccountAccessViewProps> = ({
           );
         })}
       </div>
+
+      {/* Provision Doctor / Admin Account Modal */}
+      {isProvisionModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl border border-stone-200 shadow-2xl w-full max-w-md p-6 space-y-4 text-[#252525]">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-xl bg-[#EDE8DE] border border-[#C8B58D]/30">
+                  <Stethoscope className="w-4 h-4 text-[#C8B58D]" />
+                </div>
+                <h2 className="text-base font-extrabold text-[#252525]">Provision Staff Account</h2>
+              </div>
+              <button
+                onClick={() => setIsProvisionModalOpen(false)}
+                className="w-8 h-8 rounded-xl text-[#6F6D69] hover:bg-stone-100 flex items-center justify-center text-sm cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleProvisionAccount} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-[#252525] mb-1">
+                  Role Clearance *
+                </label>
+                <select
+                  value={newRole}
+                  onChange={e => setNewRole(e.target.value as 'doctor' | 'admin')}
+                  className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:border-[#C8B58D]"
+                >
+                  <option value="doctor">Doctor / Clinician (dr.name@oralix.com)</option>
+                  <option value="admin">Clinic Administrator (name@oralix.com)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#252525] mb-1">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newDoctorName}
+                  onChange={e => setNewDoctorName(e.target.value)}
+                  placeholder="e.g. Dr. Arjun Rao"
+                  className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs text-[#252525] placeholder-[#999690] focus:outline-none focus:border-[#C8B58D]"
+                />
+                <p className="text-[10px] text-[#6F6D69] mt-1">
+                  Oralix ID will be generated as: <span className="font-mono font-bold text-[#252525]">{newDoctorName ? generateOralixId(newDoctorName, newRole, allUsers) : 'dr.<name>@oralix.com'}</span>
+                </p>
+              </div>
+
+              {newRole === 'doctor' && (
+                <div>
+                  <label className="block text-xs font-bold text-[#252525] mb-1">
+                    Specialization
+                  </label>
+                  <input
+                    type="text"
+                    value={newSpecialization}
+                    onChange={e => setNewSpecialization(e.target.value)}
+                    placeholder="e.g. Endodontics & Restorative"
+                    className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs text-[#252525] focus:outline-none focus:border-[#C8B58D]"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-[#252525] mb-1">
+                  Initial Account Password *
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder="Min. 6 characters"
+                  className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs text-[#252525] placeholder-[#999690] focus:outline-none focus:border-[#C8B58D]"
+                />
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={() => setIsProvisionModalOpen(false)}
+                  className="px-4 py-2 text-xs font-bold text-[#6F6D69] hover:bg-stone-100 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary text-xs py-2 px-4 cursor-pointer"
+                >
+                  Provision Account
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

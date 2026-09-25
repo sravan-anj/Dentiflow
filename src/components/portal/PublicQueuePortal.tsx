@@ -53,7 +53,7 @@ export const PublicQueuePortal: React.FC<PublicQueuePortalProps> = ({ queue, onC
           </span>
           <div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight">
-              DentiFlow Dental Clinic
+              Oralix Dental Clinic
             </h1>
             <p className="text-xs text-slate-400 font-medium tracking-wide">
               Live Waiting Room Display &bull; Operatory Queue
@@ -202,7 +202,7 @@ export const PublicQueuePortal: React.FC<PublicQueuePortalProps> = ({ queue, onC
 
       {/* Footer Ticker */}
       <footer className="p-3 bg-slate-950 border-t border-slate-800 text-center text-xs text-slate-400">
-        <span>If your token is called, please proceed to the indicated operatory dental chair. Free Wi-Fi: DentiFlow-Guest &bull; Water &amp; Refreshments at Lounge.</span>
+        <span>If your token is called, please proceed to the indicated operatory dental chair. Free Wi-Fi: Oralix-Guest &bull; Water &amp; Refreshments at Lounge.</span>
       </footer>
     </div>
   );

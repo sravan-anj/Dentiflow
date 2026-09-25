@@ -374,7 +374,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           <div className="flex items-start gap-2.5 p-3 bg-sky-50/70 border border-sky-200/80 rounded-xl text-[11px] text-sky-900">
             <ShieldCheck className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
             <p>
-              Your credentials are cryptographically protected under DentiFlow Clinical Clearance. Password hashes and MFA tokens are stored in isolated vault storage and never transmitted in plain text.
+              Your credentials are cryptographically protected under Oralix Clinical Clearance. Password hashes and MFA tokens are stored in isolated vault storage and never transmitted in plain text.
             </p>
           </div>
 

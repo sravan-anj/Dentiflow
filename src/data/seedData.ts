@@ -11,33 +11,46 @@ import {
   StaffMember,
   User
 } from '../types';
+import { hashPassword } from '../utils/authService';
 
 export const INITIAL_USERS: User[] = [
   {
     id: 'u-doctor',
+    oralixId: 'dr.ananya@oralix.com',
     name: 'Dr. Ananya Sharma',
     email: 'doctor@gmail.com',
     role: 'doctor',
+    passwordHash: hashPassword('doctor123'),
     avatarText: 'DR',
     specialization: 'Endodontics & Restorative',
-    phone: '+91 98450 11223'
+    phone: '+91 98450 11223',
+    status: 'active',
+    createdAt: '2026-01-15'
   },
   {
     id: 'u-patient',
+    oralixId: 'aravind@oralix.com',
     name: 'Aravind Kumar',
     email: 'patient@gmail.com',
     role: 'patient',
+    passwordHash: hashPassword('patient123'),
     avatarText: 'AK',
     patientId: 'p-1',
-    phone: '+91 98765 43210'
+    phone: '+91 98765 43210',
+    status: 'active',
+    createdAt: '2026-02-01'
   },
   {
     id: 'u-admin',
+    oralixId: 'admin@oralix.com',
     name: 'Clinic Administrator',
     email: 'admin@gmail.com',
     role: 'admin',
+    passwordHash: hashPassword('admin123'),
     avatarText: 'AD',
-    phone: '+91 99000 88776'
+    phone: '+91 99000 88776',
+    status: 'active',
+    createdAt: '2026-01-01'
   }
 ];
 
@@ -807,7 +820,7 @@ export const INITIAL_STAFF: StaffMember[] = [
     registrationNumber: 'KDC-18921-A',
     assignedChair: 'Chair 1 - Endodontics',
     availability: 'Mon - Sat (09:00 AM - 05:30 PM)',
-    email: 'ananya.sharma@dentiflow.clinic',
+    email: 'ananya.sharma@oralix.clinic',
     phone: '+91 98450 11223',
     activePatientsToday: 6,
     avatarText: 'AS'
@@ -820,7 +833,7 @@ export const INITIAL_STAFF: StaffMember[] = [
     registrationNumber: 'KDC-14209-B',
     assignedChair: 'Chair 2 - Surgery',
     availability: 'Tue, Thu, Sat (10:00 AM - 06:00 PM)',
-    email: 'vikram.mehta@dentiflow.clinic',
+    email: 'vikram.mehta@oralix.clinic',
     phone: '+91 98450 44556',
     activePatientsToday: 4,
     avatarText: 'VM'
@@ -833,7 +846,7 @@ export const INITIAL_STAFF: StaffMember[] = [
     registrationNumber: 'KDC-22019-C',
     assignedChair: 'Chair 3 - Aesthetics & Hygiene',
     availability: 'Mon - Fri (10:30 AM - 07:00 PM)',
-    email: 'priya.sen@dentiflow.clinic',
+    email: 'priya.sen@oralix.clinic',
     phone: '+91 98450 77889',
     activePatientsToday: 5,
     avatarText: 'PS'
@@ -846,7 +859,7 @@ export const INITIAL_STAFF: StaffMember[] = [
     registrationNumber: 'DHC-0912',
     assignedChair: 'Sterilization & Operatory Desk',
     availability: 'Mon - Sat (08:30 AM - 05:00 PM)',
-    email: 'kavita.s@dentiflow.clinic',
+    email: 'kavita.s@oralix.clinic',
     phone: '+91 98450 99001',
     activePatientsToday: 8,
     avatarText: 'KS'

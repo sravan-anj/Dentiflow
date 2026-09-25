@@ -75,7 +75,7 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
                 <span className="text-black font-black tracking-tight text-xl leading-none font-display drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)]" style={{ color: '#000000' }}>
-                  DENTIFLOW
+                  ORALIX
                 </span>
                 <span className="w-1.5 h-1.5 rounded-full bg-black" />
               </div>

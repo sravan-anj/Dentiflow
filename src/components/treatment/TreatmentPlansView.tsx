@@ -425,7 +425,7 @@ export const TreatmentPlansView: React.FC<TreatmentPlansViewProps> = ({
                 <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500">
                   <span className="flex items-center gap-1.5">
                     <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>DentiFlow HIPAA-compliant treatment estimate &bull; Final claim subject to provider pre-authorization.</span>
+                    <span>Oralix HIPAA-compliant treatment estimate &bull; Final claim subject to provider pre-authorization.</span>
                   </span>
                   <button
                     onClick={onNavigateToChart}
@@ -492,7 +492,7 @@ export const TreatmentPlansView: React.FC<TreatmentPlansViewProps> = ({
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-800 text-xs text-slate-400">
             <span className="flex items-center gap-1.5">
               <Shield className="w-4 h-4 text-emerald-400" />
-              <span>Need help setting up EMI or insurance pre-auth? Apply for DentiFlow CareFinancing below.</span>
+              <span>Need help setting up EMI or insurance pre-auth? Apply for Oralix CareFinancing below.</span>
             </span>
             <button
               onClick={() => setIsFinancingModalOpen(true)}
@@ -514,7 +514,7 @@ export const TreatmentPlansView: React.FC<TreatmentPlansViewProps> = ({
                   </div>
                   <div>
                     <h3 className="text-base font-extrabold text-slate-900">
-                      Apply for DentiFlow CareFinancing
+                      Apply for Oralix CareFinancing
                     </h3>
                     <p className="text-xs text-slate-500">
                       0% Interest EMI Healthcare Loan &bull; Instant Desk Authorization

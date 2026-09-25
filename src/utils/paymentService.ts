@@ -28,7 +28,7 @@ export interface PaymentVerificationRequest {
 
 export interface GatewayConfigStatus {
   isConfigured: boolean;
-  gatewayName: 'Razorpay' | 'DentiFlow Integrated Gateway';
+  gatewayName: 'Razorpay' | 'Oralix Integrated Gateway';
   keyId?: string;
   environment: 'production' | 'test' | 'sandbox';
   supportedCurrencies: string[];

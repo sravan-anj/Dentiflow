@@ -118,7 +118,7 @@ export const CtaFooterSection: React.FC<CtaFooterSectionProps> = ({
                 <ToothIcon size={24} />
               </div>
               <span className="text-2xl font-black tracking-tight text-white font-display">
-                DENTIFLOW
+                ORALIX
               </span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed font-medium mb-6">
@@ -207,7 +207,7 @@ export const CtaFooterSection: React.FC<CtaFooterSectionProps> = ({
 
       {/* Sub-Footer & Legal */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400 font-medium relative z-10">
-        <span>© 2026 DentiFlow Advanced Dental Medicine. All clinical rights reserved.</span>
+        <span>© 2026 Oralix Advanced Dental Care. All clinical rights reserved.</span>
         <div className="flex items-center gap-6">
           <span>Digital Health Data Protection Compliant</span>
           <span>ISO 13485 Operatory Certification</span>

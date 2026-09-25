@@ -266,7 +266,7 @@ export const StaffView: React.FC<StaffViewProps> = ({ staff, onSaveStaff }) => {
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    placeholder="doctor@dentiflow.clinic"
+                    placeholder="doctor@oralix.clinic"
                     className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-md bg-white focus:ring-1 focus:ring-blue-600"
                   />
                 </div>

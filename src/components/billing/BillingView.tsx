@@ -541,7 +541,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
               <div className="space-y-1">
                 <h4 className="font-bold text-[#252525] text-sm">Insurance Claims &amp; Tax Deductions</h4>
                 <p className="leading-relaxed text-[#6F6D69]">
-                  All receipts issued by DentiFlow carry clinic GSTIN, practitioner dental registration numbers (IDA/DCI), and procedure classifications suitable for Section 80D Income Tax deduction and private dental insurance reimbursement.
+                  All receipts issued by Oralix carry clinic GSTIN, practitioner dental registration numbers (IDA/DCI), and procedure classifications suitable for Section 80D Income Tax deduction and private dental insurance reimbursement.
                 </p>
               </div>
             </div>
@@ -717,7 +717,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                 <div>
                   <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EDE8DE] text-[10px] font-extrabold uppercase tracking-wider text-[#252525] border border-[#C8B58D]/20 mb-0.5">
                     <Sparkles className="w-3 h-3 text-[#C8B58D]" />
-                    <span>DentiFlow Patient Checkout</span>
+                    <span>Oralix Patient Checkout</span>
                   </div>
                   <h2 className="text-base font-extrabold text-[#252525] tracking-tight">
                     Pay Balance
@@ -770,7 +770,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                     </span>
                     <h3 className="text-lg font-extrabold text-[#252525]">₹{paymentAmount.toLocaleString()} Settled</h3>
                     <p className="text-xs text-[#6F6D69]">
-                      Invoice balance updated to ₹0 in DentiFlow records.
+                      Invoice balance updated to ₹0 in Oralix records.
                     </p>
                   </div>
 
@@ -839,7 +839,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
                       </div>
                       <div className="space-y-0.5">
                         <p className="text-[11px] font-mono font-bold text-[#252525]">
-                          VPA: dentiflow.care@hdfcbank
+                          VPA: oralix.care@hdfcbank
                         </p>
                         <p className="text-[11px] font-extrabold text-[#3B4D3A]">
                           Amount: ₹{paymentAmount.toLocaleString('en-IN')}

@@ -356,7 +356,7 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <h4 className="font-bold text-sky-950 text-sm">DentiFlow Clinical Standards &amp; Safety Protocol</h4>
+              <h4 className="font-bold text-sky-950 text-sm">Oralix Clinical Standards &amp; Safety Protocol</h4>
               <p className="mt-1 leading-relaxed text-slate-600">
                 All operatory chairs undergo ISO-certified surgical sterilization between patient sittings. If you experience unexpected tooth pain, cold sensitivity, or swelling prior to your appointment, please contact the clinic reception immediately at <span className="font-bold text-sky-900">+91 98765 43210</span>.
               </p>
@@ -719,8 +719,8 @@ export const AppointmentsView: React.FC<AppointmentsViewProps> = ({
         </div>
       </div>
 
-      {/* Book Appointment Modal */}
-      {isBookingModalOpen && (
+      {/* Book Appointment Modal - Patient Context Only */}
+      {isBookingModalOpen && isPatient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
           <div className="bg-white rounded-lg border border-gray-200 shadow-xl w-full max-w-lg p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-gray-100">

@@ -1,22 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { ToothIcon } from '../common/ToothIcon';
 import { User, UserRole } from '../../types';
-import { INITIAL_USERS } from '../../data/seedData';
 import { SecurityService } from '../../utils/security';
 import { StorageService } from '../../utils/storage';
+import { AuthService } from '../../utils/authService';
 import {
-  Lock,
+  ArrowLeft,
+  KeyRound,
+  AlertCircle,
   Mail,
+  Lock,
   Eye,
   EyeOff,
   ArrowRight,
-  ShieldCheck,
-  AlertCircle,
-  Clock,
-  Sparkles,
-  ArrowLeft,
-  KeyRound,
-  CheckCircle2
+  ShieldCheck
 } from 'lucide-react';
 
 interface SignInPageProps {
@@ -30,15 +27,15 @@ export const SignInPage: React.FC<SignInPageProps> = ({
   onNavigateLanding,
   onNavigateSignUp
 }) => {
-  const [email, setEmail] = useState('doctor@gmail.com');
-  const [password, setPassword] = useState('doctor123');
+  const [selectedRole, setSelectedRole] = useState<UserRole>('patient');
+  const [oralixId, setOralixId] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<UserRole>('doctor');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
 
-  // Monitor terminal security lockout
+  // Monitor security lockout
   useEffect(() => {
     const checkLockout = () => {
       const status = SecurityService.getLockoutStatus();
@@ -54,101 +51,50 @@ export const SignInPage: React.FC<SignInPageProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Quick fill helper for review and testing
-  const handleQuickFill = (role: UserRole) => {
-    setSelectedRole(role);
-    setError('');
-    if (role === 'doctor') {
-      setEmail('doctor@gmail.com');
-      setPassword('doctor123');
-    } else if (role === 'admin') {
-      setEmail('admin@gmail.com');
-      setPassword('admin123');
-    } else if (role === 'patient') {
-      setEmail('patient@gmail.com');
-      setPassword('patient123');
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (lockoutRemaining > 0) return;
     setError('');
+
+    const cleanId = oralixId.trim();
+    const cleanPass = password.trim();
+
+    if (!cleanId || !cleanPass) {
+      setError('Please enter your Oralix ID / Email and password.');
+      return;
+    }
+
     setIsLoading(true);
 
     setTimeout(() => {
-      const cleanEmail = email.trim().toLowerCase();
-      const cleanPass = password.trim();
-
-      // Check against stored users
       const allUsers = StorageService.getUsers();
-      const userMatch = allUsers.find(
-        (u) => u.email.toLowerCase() === cleanEmail || (u.role === selectedRole && cleanEmail.includes(u.role))
-      );
+      const result = AuthService.verifyCredentials(cleanId, cleanPass, allUsers, selectedRole);
 
-      const creds = SecurityService.getCredentials();
-      let isValid = false;
-
-      // Verification logic adhering to existing security foundation
-      if (selectedRole === 'doctor' || (userMatch && userMatch.role === 'doctor')) {
-        isValid =
-          cleanPass === 'doctor123' ||
-          cleanPass === creds.doctorPin ||
-          cleanPass.toUpperCase() === 'DOC-4482' ||
-          cleanPass.toUpperCase() === 'DOC-2026';
-      } else if (selectedRole === 'admin' || (userMatch && userMatch.role === 'admin')) {
-        isValid =
-          cleanPass === 'admin123' ||
-          cleanPass === creds.adminPin ||
-          cleanPass.toUpperCase() === 'ADMIN-9042';
-      } else if (selectedRole === 'patient' || (userMatch && userMatch.role === 'patient')) {
-        isValid =
-          cleanPass === 'patient123' ||
-          cleanPass === creds.patientDefaultPin ||
-          cleanPass === '123456';
-      } else {
-        // Fallback for custom registered users
-        isValid = cleanPass.length >= 6;
-      }
-
-      if (!isValid) {
+      if (!result.success || !result.user) {
         setIsLoading(false);
-        const { lockedOut, attemptsLeft } = SecurityService.recordFailedAttempt(
-          cleanEmail || 'Unknown User',
+        const { lockedOut } = SecurityService.recordFailedAttempt(
+          cleanId || 'Unknown Account',
           selectedRole
         );
         if (lockedOut) {
-          setError('Security Lockout: 3 failed attempts. Operatory terminal secured for 30s.');
+          setError('Security Lockout: 3 failed attempts. Account login protected for 30s.');
           setLockoutRemaining(30);
         } else {
-          setError(`Invalid clearance credentials. ${attemptsLeft} attempt(s) remaining before security lockout.`);
+          setError(result.message || 'Invalid Oralix ID / Email or password.');
         }
         return;
       }
 
-      // Success: Clear failed attempts and log audit event
+      // Success
+      const authenticatedUser = result.user;
       SecurityService.clearFailedAttempts();
       SecurityService.logEvent({
         type: 'AUTH_LOGIN',
-        actor: userMatch ? userMatch.name : cleanEmail,
-        targetRole: selectedRole,
-        details: `Clinician/User signed in to ${selectedRole.toUpperCase()} terminal`,
+        actor: authenticatedUser.name,
+        targetRole: authenticatedUser.role,
+        details: `Authenticated user ${authenticatedUser.oralixId || authenticatedUser.email} (${authenticatedUser.role.toUpperCase()})`,
         status: 'SUCCESS'
       });
-
-      const authenticatedUser: User = userMatch || {
-        id: `u-${selectedRole}-${Date.now()}`,
-        name:
-          selectedRole === 'doctor'
-            ? 'Dr. Ananya Sharma'
-            : selectedRole === 'admin'
-            ? 'Clinic Administrator'
-            : 'Aravind Kumar',
-        email: cleanEmail,
-        role: selectedRole,
-        avatarText: selectedRole === 'doctor' ? 'AS' : selectedRole === 'admin' ? 'AD' : 'AK',
-        patientId: selectedRole === 'patient' ? 'p-1' : undefined
-      };
 
       StorageService.saveCurrentUser(authenticatedUser);
       setIsLoading(false);
@@ -159,13 +105,13 @@ export const SignInPage: React.FC<SignInPageProps> = ({
   return (
     <div className="min-h-screen bg-[#F5F3EF] text-[#252525] relative flex flex-col justify-between overflow-x-hidden font-sans antialiased">
       {/* SINGLE FIXED FULL-SCREEN LOOPING DENTAL VIDEO BACKGROUND WITH WARM IVORY FROST */}
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none bg-[#F5F3EF] w-full h-full">
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none bg-[#F5F3EF] w-full h-full min-w-full min-h-full max-w-none max-h-none">
         <video
           autoPlay
           loop
           muted
           playsInline
-          className="absolute inset-0 z-0 w-full h-full min-w-full min-h-full max-w-none max-h-none object-cover object-center origin-center scale-[1.10] block filter brightness-[1.05] contrast-[1.02] opacity-35"
+          className="absolute inset-0 z-0 w-full h-full min-w-full min-h-full max-w-none max-h-none object-cover object-center origin-center scale-[1.14] block filter brightness-[1.05] contrast-[1.02] opacity-35"
           poster="/realistic_human_molar.png"
         >
           <source src="/Denti video3.2.mp4" type="video/mp4" />
@@ -183,7 +129,7 @@ export const SignInPage: React.FC<SignInPageProps> = ({
           className="group flex items-center gap-2 text-xs font-bold text-[#252525] px-4 py-2 rounded-full bg-white/80 border border-stone-200/80 backdrop-blur-md hover:border-[#C8B58D] hover:bg-white transition-all duration-200 cursor-pointer shadow-xs"
         >
           <ArrowLeft className="w-4 h-4 text-[#C8B58D] group-hover:-translate-x-1 transition-transform duration-200" />
-          <span>Back to DentiFlow Showcase</span>
+          <span>Back to Showcase</span>
         </button>
 
         <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/80 border border-stone-200/80 backdrop-blur-md shadow-xs">
@@ -191,7 +137,7 @@ export const SignInPage: React.FC<SignInPageProps> = ({
             <ToothIcon size={16} />
           </div>
           <span className="text-sm font-black font-display tracking-tight text-[#252525]">
-            DENTIFLOW
+            ORALIX
           </span>
         </div>
       </header>
@@ -200,61 +146,64 @@ export const SignInPage: React.FC<SignInPageProps> = ({
       <main className="relative z-10 w-full max-w-md mx-auto px-4 py-6 my-auto flex flex-col items-center">
         <div className="w-full bg-white/85 border border-stone-200/80 rounded-3xl p-6 sm:p-8 shadow-[0_18px_55px_rgba(60,55,45,0.08)] backdrop-blur-2xl relative overflow-hidden text-[#252525]">
           
-          <div className="text-center mb-6 relative">
+          <div className="text-center mb-5 relative">
             <div className="w-12 h-12 rounded-2xl bg-[#EDE8DE] border border-[#C8B58D]/30 text-[#252525] flex items-center justify-center mx-auto mb-3 shadow-xs">
               <KeyRound className="w-6 h-6 text-[#C8B58D]" />
             </div>
             <h1 className="text-2xl font-extrabold text-[#252525] font-display tracking-tight">
-              Welcome Back
+              Welcome to Oralix
             </h1>
             <p className="text-xs text-[#6F6D69] font-medium mt-1">
-              Sign in to your DentiFlow clinical management account
+              Select your role and sign in with your Oralix ID or Email
             </p>
           </div>
 
-          {/* Quick Demo Role Selectors */}
-          <div className="mb-6 relative">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#6F6D69] block mb-2 text-center">
-              Quick-Select Demo Account:
-            </span>
+          {/* Role Selector Buttons */}
+          <div className="mb-5">
+            <label className="block text-[11px] font-extrabold uppercase tracking-wider text-[#6F6D69] mb-2 text-center">
+              Who are you signing in as?
+            </label>
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => handleQuickFill('doctor')}
-                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all duration-200 flex flex-col items-center border cursor-pointer ${
-                  selectedRole === 'doctor'
-                    ? 'bg-[#EDE8DE] border-[#C8B58D] text-[#252525] font-black shadow-xs'
-                    : 'bg-white/80 text-[#6F6D69] border-stone-200/80 hover:bg-stone-50'
-                }`}
-              >
-                <span>Doctor</span>
-                <span className="text-[9px] opacity-75">Dr. Ananya</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickFill('patient')}
-                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all duration-200 flex flex-col items-center border cursor-pointer ${
+                onClick={() => setSelectedRole('patient')}
+                className={`p-2.5 rounded-2xl border text-center transition cursor-pointer flex flex-col items-center ${
                   selectedRole === 'patient'
-                    ? 'bg-[#EDE8DE] border-[#C8B58D] text-[#252525] font-black shadow-xs'
-                    : 'bg-white/80 text-[#6F6D69] border-stone-200/80 hover:bg-stone-50'
+                    ? 'bg-[#EDE8DE] border-[#C8B58D] text-[#252525] shadow-2xs font-extrabold ring-1 ring-[#C8B58D]'
+                    : 'bg-white/80 border-stone-200 text-[#6F6D69] hover:bg-stone-50'
                 }`}
               >
-                <span>Patient</span>
-                <span className="text-[9px] opacity-75">Aravind K.</span>
+                <span className="text-lg mb-0.5">👤</span>
+                <span className="text-[10px] font-black uppercase tracking-tight">PATIENT</span>
+                <span className="text-[9px] text-[#6F6D69]">Patient Portal</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => handleQuickFill('admin')}
-                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all duration-200 flex flex-col items-center border cursor-pointer ${
-                  selectedRole === 'admin'
-                    ? 'bg-[#EDE8DE] border-[#C8B58D] text-[#252525] font-black shadow-xs'
-                    : 'bg-white/80 text-[#6F6D69] border-stone-200/80 hover:bg-stone-50'
+                onClick={() => setSelectedRole('doctor')}
+                className={`p-2.5 rounded-2xl border text-center transition cursor-pointer flex flex-col items-center ${
+                  selectedRole === 'doctor'
+                    ? 'bg-[#EDE8DE] border-[#C8B58D] text-[#252525] shadow-2xs font-extrabold ring-1 ring-[#C8B58D]'
+                    : 'bg-white/80 border-stone-200 text-[#6F6D69] hover:bg-stone-50'
                 }`}
               >
-                <span>Admin</span>
-                <span className="text-[9px] opacity-75">Full Practice</span>
+                <span className="text-lg mb-0.5">🩺</span>
+                <span className="text-[10px] font-black uppercase tracking-tight">DOCTOR</span>
+                <span className="text-[9px] text-[#6F6D69]">Clinician Portal</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedRole('admin')}
+                className={`p-2.5 rounded-2xl border text-center transition cursor-pointer flex flex-col items-center ${
+                  selectedRole === 'admin'
+                    ? 'bg-[#EDE8DE] border-[#C8B58D] text-[#252525] shadow-2xs font-extrabold ring-1 ring-[#C8B58D]'
+                    : 'bg-white/80 border-stone-200 text-[#6F6D69] hover:bg-stone-50'
+                }`}
+              >
+                <span className="text-lg mb-0.5">🛡️</span>
+                <span className="text-[10px] font-black uppercase tracking-tight">ADMIN</span>
+                <span className="text-[9px] text-[#6F6D69]">Clinic Mgmt</span>
               </button>
             </div>
           </div>
@@ -271,16 +220,16 @@ export const SignInPage: React.FC<SignInPageProps> = ({
           <form onSubmit={handleSubmit} className="space-y-4 relative">
             <div>
               <label className="block text-xs font-bold text-[#252525] mb-1.5">
-                Staff / Patient Email Address
+                Oralix ID / Email
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-[#C8B58D] absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@clinic.com"
+                  value={oralixId}
+                  onChange={(e) => setOralixId(e.target.value)}
+                  placeholder={selectedRole === 'doctor' ? 'doctor@gmail.com or dr.ananya@oralix.com' : selectedRole === 'admin' ? 'admin@gmail.com or admin@oralix.com' : 'patient@gmail.com or aravind@oralix.com'}
                   disabled={lockoutRemaining > 0 || isLoading}
                   className="w-full bg-white border border-stone-200/80 rounded-xl pl-10 pr-4 py-2.5 text-xs text-[#252525] placeholder-[#999690] focus:outline-none focus:border-[#C8B58D] focus:ring-2 focus:ring-[#C8B58D]/20 font-medium transition"
                 />
@@ -288,14 +237,9 @@ export const SignInPage: React.FC<SignInPageProps> = ({
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-[#252525]">
-                  Password or Operatory PIN
-                </label>
-                <span className="text-[10px] text-[#594723] font-mono font-bold">
-                  PIN: {selectedRole === 'doctor' ? '4482' : selectedRole === 'admin' ? '9042' : '123456'}
-                </span>
-              </div>
+              <label className="block text-xs font-bold text-[#252525] mb-1.5">
+                Password
+              </label>
               <div className="relative">
                 <Lock className="w-4 h-4 text-[#C8B58D] absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
@@ -303,7 +247,7 @@ export const SignInPage: React.FC<SignInPageProps> = ({
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter password or license PIN"
+                  placeholder="Enter your account password"
                   disabled={lockoutRemaining > 0 || isLoading}
                   className="w-full bg-white border border-stone-200/80 rounded-xl pl-10 pr-10 py-2.5 text-xs text-[#252525] placeholder-[#999690] focus:outline-none focus:border-[#C8B58D] focus:ring-2 focus:ring-[#C8B58D]/20 font-medium transition"
                 />
@@ -331,7 +275,7 @@ export const SignInPage: React.FC<SignInPageProps> = ({
                 </>
               ) : (
                 <>
-                  <span>Sign In To Workstation</span>
+                  <span>Sign In</span>
                   <ArrowRight className="w-4 h-4 text-[#C8B58D]" />
                 </>
               )}
@@ -357,7 +301,7 @@ export const SignInPage: React.FC<SignInPageProps> = ({
         {/* Security Assurance Footer */}
         <div className="mt-5 text-center text-[11px] text-[#6F6D69] flex items-center gap-2 px-4 py-2 rounded-full bg-white/80 border border-stone-200/80 backdrop-blur-md shadow-2xs">
           <ShieldCheck className="w-3.5 h-3.5 text-[#8FA88D]" />
-          <span>Protected with cryptographic rate-limiting &amp; operatory audit logs</span>
+          <span>Protected with cryptographic rate-limiting &amp; audit logging</span>
         </div>
       </main>
 

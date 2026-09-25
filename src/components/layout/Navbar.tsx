@@ -292,7 +292,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[#B97870] hover:bg-[#B97870]/10 hover:text-[#9B4D45] font-bold text-xs transition cursor-pointer"
                 >
                   <LogOut className="w-4 h-4 text-[#B97870]" />
-                  <span>Sign Out of DentiFlow</span>
+                  <span>Sign Out of Oralix</span>
                 </button>
               </div>
             </div>

@@ -5,7 +5,7 @@ import { ShieldCheck, ShieldAlert, Lock, KeyRound, AlertTriangle, X, CheckCircle
 interface SecurityModalProps {
   isOpen: boolean;
   onClose: () => void;
-  targetRole: 'doctor' | 'admin' | 'patient';
+  targetRole: 'doctor' | 'admin';
   targetFeatureName?: string;
   onSuccess: () => void;
   actorName?: string;
@@ -83,15 +83,11 @@ export const SecurityModal: React.FC<SecurityModalProps> = ({
 
   const roleTitle = targetRole === 'admin' 
     ? 'Clinic Administrator Portal' 
-    : targetRole === 'doctor' 
-    ? 'Dentist & Clinician Terminal' 
-    : 'Patient Private Medical Portal';
+    : 'Dentist & Clinician Terminal';
 
   const defaultPinHint = targetRole === 'admin'
     ? 'Default Admin PIN: 9042'
-    : targetRole === 'doctor'
-    ? 'Default Doctor PIN: 4482'
-    : 'Default Patient PIN: 123456';
+    : 'Default Doctor PIN: 4482';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">

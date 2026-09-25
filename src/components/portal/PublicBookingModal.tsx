@@ -350,7 +350,7 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
               <div className="p-4 bg-[#EDE8DE]/40 rounded-2xl border border-stone-200/80 space-y-2 text-xs">
                 <div className="flex justify-between pb-1.5 border-b border-stone-200/80 font-extrabold text-[#C8B58D] text-[11px] uppercase tracking-wider">
                   <span>Appointment Summary</span>
-                  <span>DentiFlow Studio</span>
+                  <span>Oralix Studio</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#6F6D69]">Service:</span>

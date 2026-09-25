@@ -35,7 +35,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   // Real CSV Production Report Exporter
   const handleExportData = () => {
     try {
-      let csvContent = 'DENTIFLOW PRACTICE PRODUCTION & ANALYTICS REPORT\n';
+      let csvContent = 'ORALIX PRACTICE PRODUCTION & ANALYTICS REPORT\n';
       csvContent += `Generated Date,${new Date().toLocaleString()}\n`;
       csvContent += `Total Active Patients,${patients.length}\n`;
       csvContent += `Total Scheduled Visits,${appointments.length}\n\n`;
@@ -63,7 +63,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `DentiFlow_Production_Report_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute('download', `Oralix_Production_Report_${new Date().toISOString().split('T')[0]}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
