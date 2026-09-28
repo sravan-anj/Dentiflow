@@ -1,7 +1,6 @@
 import { User, UserRole } from '../types';
 
 /**
- * Secure password hashing function for Oralix authentication.
  * Computes a salted, multi-pass hash digest to ensure passwords are never stored in plaintext.
  */
 export function hashPassword(password: string): string {
