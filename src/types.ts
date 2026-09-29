@@ -256,7 +256,7 @@ export interface PaymentTransaction {
   patientId: string;
   patientName: string;
   amount: number;
-  paymentMethod: 'QR Payment' | 'UPI' | 'Debit Card' | 'Credit Card' | 'Cash' | 'Insurance' | 'Card / POS';
+  paymentMethod: 'QR Payment' | 'UPI' | 'Debit Card' | 'Credit Card' | 'Cash' | 'Insurance' | 'Card / POS' | 'UPI / QR' | 'Net Banking' | 'Wallet';
   transactionRef: string; // UTR / POS Terminal Ref / Cash Voucher # / Insurance Pre-Auth #
   status: PaymentState;
   timestamp: string;

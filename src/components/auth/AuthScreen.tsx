@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ToothIcon } from '../common/ToothIcon';
 import { User, UserRole } from '../../types';
 import { INITIAL_USERS } from '../../data/seedData';
+import { StorageService } from '../../utils/storage';
+import { AuthService, generateOralixId, hashPassword } from '../../utils/authService';
 import { SecurityService } from '../../utils/security';
 import { StorageService } from '../../utils/storage';
 import { AuthService, generateOralixId, hashPassword } from '../../utils/authService';
