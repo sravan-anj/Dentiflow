@@ -7,3 +7,4 @@ coverage/
 .env*
 !.env.example
 .dentiflow_*.json
+.oralix_*.json

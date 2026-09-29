@@ -1,0 +1,27 @@
+{
+  "name": "dentiflow-backend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx server.ts",
+    "dev": "tsx watch server.ts",
+    "test:auth": "tsx test_auth.ts",
+    "test:matrix": "tsx test_domain_matrix.ts",
+    "test": "tsx test_auth.ts && tsx test_domain_matrix.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^2.4.0",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "nodemailer": "^6.10.0",
+    "resend": "^4.1.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.14.0",
+    "@types/nodemailer": "^6.4.17",
+    "tsx": "^4.21.0",
+    "typescript": "^7.0.2"
+  }
+}

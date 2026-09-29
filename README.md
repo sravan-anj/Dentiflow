@@ -1,20 +1,40 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# DentiFlow / Oralix — Dental Practice Management Platform
 
-# Run and deploy your AI Studio app
+This repository is strictly separated into dedicated **frontend** and **backend** applications.
 
-This contains everything you need to run your app locally.
+## Directory Structure
 
-View your app in AI Studio: https://ai.studio/apps/36d93ae9-6f05-46ae-8028-9e7959c77033
+```
+.
+├── frontend/    # Client application (React 19, TypeScript, Tailwind CSS, Vite)
+├── backend/     # API server & database (Node.js, Express, TypeScript, PBKDF2 Auth)
+├── package.json # Root workspace manager
+└── README.md
+```
 
-## Run Locally
+---
 
-**Prerequisites:**  Node.js
+## 🚀 Running the Projects
 
+### 1. Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Runs the frontend development server on `http://localhost:3000`.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 2. Backend
+```bash
+cd backend
+npm install
+npm run dev
+```
+Runs the Express API server on `http://localhost:3001`.
+
+### 3. Running from Root
+You can also run commands directly from the root workspace:
+- Start frontend: `npm run dev:frontend`
+- Start backend: `npm run dev:backend`
+- Build frontend: `npm run build:frontend`
+- Test backend: `npm run test:backend`
