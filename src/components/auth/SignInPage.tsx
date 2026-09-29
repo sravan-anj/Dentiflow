@@ -4,6 +4,7 @@ import { User, UserRole } from '../../types';
 import { SecurityService } from '../../utils/security';
 import { StorageService } from '../../utils/storage';
 import { AuthService } from '../../utils/authService';
+import { GoogleSignInButton } from './GoogleSignInButton';
 import {
   ArrowLeft,
   KeyRound,
@@ -17,17 +18,19 @@ import {
 } from 'lucide-react';
 
 interface SignInPageProps {
+  initialRole?: UserRole;
   onLogin: (user: User) => void;
   onNavigateLanding: () => void;
   onNavigateSignUp: () => void;
 }
 
 export const SignInPage: React.FC<SignInPageProps> = ({
+  initialRole = 'patient',
   onLogin,
   onNavigateLanding,
   onNavigateSignUp
 }) => {
-  const [selectedRole, setSelectedRole] = useState<UserRole>('patient');
+  const [selectedRole, setSelectedRole] = useState<UserRole>(initialRole);
   const [oralixId, setOralixId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -51,7 +54,7 @@ export const SignInPage: React.FC<SignInPageProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (lockoutRemaining > 0) return;
     setError('');
@@ -66,9 +69,9 @@ export const SignInPage: React.FC<SignInPageProps> = ({
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      const allUsers = StorageService.getUsers();
-      const result = AuthService.verifyCredentials(cleanId, cleanPass, allUsers, selectedRole);
+    try {
+      // 1. Authenticate with Supabase Auth
+      const result = await AuthService.signIn(cleanId, cleanPass, selectedRole);
 
       if (!result.success || !result.user) {
         setIsLoading(false);
@@ -92,14 +95,17 @@ export const SignInPage: React.FC<SignInPageProps> = ({
         type: 'AUTH_LOGIN',
         actor: authenticatedUser.name,
         targetRole: authenticatedUser.role,
-        details: `Authenticated user ${authenticatedUser.oralixId || authenticatedUser.email} (${authenticatedUser.role.toUpperCase()})`,
+        details: `Authenticated user ${authenticatedUser.oralixId || authenticatedUser.email} (${authenticatedUser.role.toUpperCase()}) via Supabase Auth`,
         status: 'SUCCESS'
       });
 
       StorageService.saveCurrentUser(authenticatedUser);
       setIsLoading(false);
       onLogin(authenticatedUser);
-    }, 400);
+    } catch (err: any) {
+      setIsLoading(false);
+      setError(err?.message || 'Authentication error.');
+    }
   };
 
   return (
@@ -282,18 +288,59 @@ export const SignInPage: React.FC<SignInPageProps> = ({
             </button>
           </form>
 
-          {/* Switch to Sign Up */}
+          {/* Social Auth Divider & Icon-Only Google Sign-In (Patients Only) */}
+          {selectedRole === 'patient' && (
+            <>
+              <div className="relative my-5 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-stone-200/90" />
+                </div>
+                <div className="relative bg-white/95 px-3 text-[10px] font-bold text-[#8C8880] uppercase tracking-widest">
+                  or
+                </div>
+              </div>
+
+              {/* Icon-Only Social Sign-In */}
+              <div className="flex justify-center pb-1">
+                <GoogleSignInButton onError={(msg) => setError(msg)} />
+              </div>
+            </>
+          )}
+
+          {/* Account Status / Sign Up Section */}
           <div className="mt-6 pt-4 border-t border-stone-200/80 text-center">
-            <p className="text-xs text-[#6F6D69]">
-              New patient without a registered chart?{' '}
-              <button
-                type="button"
-                onClick={onNavigateSignUp}
-                className="text-[#252525] hover:text-[#594723] font-bold transition ml-1 cursor-pointer underline underline-offset-4 decoration-[#C8B58D]/60 hover:decoration-[#C8B58D]"
-              >
-                Create Account →
-              </button>
-            </p>
+            {selectedRole === 'patient' ? (
+              <p className="text-xs text-[#6F6D69]">
+                New patient without a registered chart?{' '}
+                <button
+                  type="button"
+                  onClick={onNavigateSignUp}
+                  className="text-[#252525] hover:text-[#594723] font-bold transition ml-1 cursor-pointer underline underline-offset-4 decoration-[#C8B58D]/60 hover:decoration-[#C8B58D]"
+                >
+                  Create Account →
+                </button>
+              </p>
+            ) : selectedRole === 'doctor' ? (
+              <div className="p-3.5 rounded-2xl bg-[#EDE8DE]/60 border border-[#C8B58D]/30 text-center">
+                <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-[#252525] mb-1">
+                  <ShieldCheck className="w-4 h-4 text-[#C8B58D]" />
+                  <span>Clinician Access Notice</span>
+                </div>
+                <p className="text-[11px] text-[#6F6D69] leading-relaxed">
+                  Doctor accounts are provisioned by Dentiflow administrators. Please sign in with your clinic credentials.
+                </p>
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-2xl bg-[#EDE8DE]/60 border border-[#C8B58D]/30 text-center">
+                <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-[#252525] mb-1">
+                  <ShieldCheck className="w-4 h-4 text-[#C8B58D]" />
+                  <span>Administrative Access Notice</span>
+                </div>
+                <p className="text-[11px] text-[#6F6D69] leading-relaxed">
+                  Admin accounts are provisioned by Dentiflow administrators. Access is strictly restricted to authorized clinic staff.
+                </p>
+              </div>
+            )}
           </div>
 
         </div>

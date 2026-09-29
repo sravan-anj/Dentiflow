@@ -57,7 +57,7 @@ export const AccountAccessView: React.FC<AccountAccessViewProps> = ({
 
   const allUsers = StorageService.getUsers();
 
-  const handleProvisionAccount = (e: React.FormEvent) => {
+  const handleProvisionAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDoctorName.trim() || !newPassword.trim()) {
       showToast('Please enter full name and password.', 'error');
@@ -65,7 +65,6 @@ export const AccountAccessView: React.FC<AccountAccessViewProps> = ({
     }
 
     const generatedOralixId = generateOralixId(newDoctorName.trim(), newRole, allUsers);
-    const hashedPassword = hashPassword(newPassword.trim());
 
     const initials = newDoctorName
       .trim()
@@ -75,25 +74,22 @@ export const AccountAccessView: React.FC<AccountAccessViewProps> = ({
       .substring(0, 2)
       .toUpperCase();
 
-    const newUser: User = {
-      id: `u-${newRole}-${Date.now()}`,
-      oralixId: generatedOralixId,
+    const res = await AuthService.signUp({
       name: newDoctorName.trim(),
-      email: generatedOralixId,
+      password: newPassword.trim(),
       role: newRole,
-      passwordHash: hashedPassword,
-      avatarText: initials || (newRole === 'doctor' ? 'DR' : 'AD'),
       specialization: newRole === 'doctor' ? newSpecialization : undefined,
-      status: 'active',
-      createdAt: new Date().toISOString().split('T')[0]
-    };
+      existingUsers: allUsers
+    });
 
-    StorageService.updateUser(newUser);
-    showToast(`Provisioned ${newRole.toUpperCase()} account: ${generatedOralixId}`, 'success');
-    
-    setIsProvisionModalOpen(false);
-    setNewDoctorName('');
-    setNewPassword('');
+    if (res.success && res.user) {
+      showToast(`Provisioned ${newRole.toUpperCase()} account in Supabase: ${res.user.oralixId}`, 'success');
+      setIsProvisionModalOpen(false);
+      setNewDoctorName('');
+      setNewPassword('');
+    } else {
+      showToast(res.message || 'Provisioning failed', 'error');
+    }
   };
 
   const filteredUsers = allUsers.filter(u => {
