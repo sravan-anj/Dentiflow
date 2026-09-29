@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { ToothIcon } from '../common/ToothIcon';
-import { User } from '../../types';
+import { User, Patient, UserRole } from '../../types';
 import { StorageService } from '../../utils/storage';
 import { SecurityService } from '../../utils/security';
 import { AuthService, generateOralixId, hashPassword } from '../../utils/authService';
+import { GoogleSignInButton } from './GoogleSignInButton';
 import {
   Lock,
   Mail,
@@ -23,7 +24,7 @@ import {
 interface SignUpPageProps {
   onLogin: (user: User) => void;
   onNavigateLanding: () => void;
-  onNavigateSignIn: () => void;
+  onNavigateSignIn: (role?: UserRole) => void;
 }
 
 export const SignUpPage: React.FC<SignUpPageProps> = ({
@@ -31,7 +32,20 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
   onNavigateLanding,
   onNavigateSignIn
 }) => {
-  const [signupRole, setSignupRole] = useState<'patient' | 'doctor'>('patient');
+  // Query param detection to handle direct attempts to reach doctor/admin signup routes
+  const [requestedRole] = useState<'doctor' | 'admin' | null>(() => {
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const roleParam = searchParams.get('role')?.toLowerCase();
+      if (roleParam === 'doctor' || roleParam === 'admin') return roleParam as 'doctor' | 'admin';
+      const path = window.location.pathname.toLowerCase();
+      if (path.includes('doctor')) return 'doctor';
+      if (path.includes('admin')) return 'admin';
+    }
+    return null;
+  });
+
+  const signupRole: UserRole = 'patient';
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -44,7 +58,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
   // Registration success state
   const [registeredUser, setRegisteredUser] = useState<User | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -63,63 +77,61 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      const cleanEmail = email.trim().toLowerCase();
+    try {
       const existingUsers = StorageService.getUsers();
+      const patientId = `p-reg-${Date.now()}`;
 
-      // Check duplicate contact email if provided
-      if (cleanEmail) {
-        const duplicate = existingUsers.find((u) => u.email && u.email.toLowerCase() === cleanEmail);
-        if (duplicate) {
-          setIsLoading(false);
-          setError('An account with this contact email already exists. Please sign in instead.');
-          return;
-        }
+      const result = await AuthService.signUp({
+        name: name.trim(),
+        email: email.trim().toLowerCase() || undefined,
+        password: password.trim(),
+        role: 'patient',
+        phone: phone.trim() || '+91 98765 43210',
+        patientId,
+        existingUsers
+      });
+
+      if (!result.success || !result.user) {
+        setIsLoading(false);
+        setError(result.message || 'Failed to register account in Supabase.');
+        return;
       }
 
-      // Generate unique Oralix ID and hash password
-      const newUserId = signupRole === 'doctor' ? `u-doc-${Date.now()}` : `u-pat-${Date.now()}`;
-      const generatedOralixId = generateOralixId(name.trim(), signupRole, existingUsers);
-      const hashedPassword = hashPassword(password);
+      const newUser = result.user;
 
-      const initials = name
-        .trim()
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .substring(0, 2)
-        .toUpperCase();
-
-      const newUser: User = {
-        id: newUserId,
-        oralixId: generatedOralixId,
-        name: name.trim(),
-        email: cleanEmail || generatedOralixId,
-        role: signupRole,
-        passwordHash: hashedPassword,
-        avatarText: initials || (signupRole === 'doctor' ? 'DR' : 'PT'),
-        phone: phone.trim() || '+91 98765 43210',
-        patientId: signupRole === 'patient' ? `p-reg-${Date.now()}` : undefined,
-        specialization: signupRole === 'doctor' ? 'Endodontics & Restorative Dentistry' : undefined,
-        status: 'active',
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-
-      // Save to persistence layer
-      StorageService.updateUser(newUser);
+      // Automatically provision patient record
+      if (patientId) {
+        const newPatient: Patient = {
+          id: patientId,
+          code: `DF-2026-${Math.floor(100 + Math.random() * 900)}`,
+          name: newUser.name,
+          age: 30,
+          gender: 'Other',
+          phone: newUser.phone || phone.trim() || '+91 98765 43210',
+          email: newUser.email,
+          balanceDue: 0,
+          medicalAlerts: medicalAlert.trim() ? [medicalAlert.trim()] : [],
+          registeredDate: new Date().toISOString()
+        };
+        const allPatients = StorageService.getPatients();
+        StorageService.savePatients([newPatient, ...allPatients]);
+      }
 
       // Audit log registration
       SecurityService.logEvent({
         type: 'AUTH_LOGIN',
         actor: newUser.name,
-        targetRole: signupRole,
-        details: `New ${signupRole} account created with Oralix ID ${newUser.oralixId}`,
+        targetRole: 'patient',
+        details: `New patient account registered in Supabase with Oralix ID ${newUser.oralixId}`,
         status: 'SUCCESS'
       });
 
       setIsLoading(false);
       setRegisteredUser(newUser);
-    }, 450);
+    } catch (err: any) {
+      setIsLoading(false);
+      setError(err?.message || 'Registration failed.');
+    }
   };
 
   const handleCompleteLogin = () => {
@@ -173,7 +185,38 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
       <main className="relative z-10 w-full max-w-lg mx-auto px-4 py-6 my-auto flex flex-col items-center">
         <div className="w-full bg-white/85 border border-stone-200/80 rounded-3xl p-6 sm:p-8 shadow-[0_18px_55px_rgba(60,55,45,0.08)] backdrop-blur-2xl relative overflow-hidden text-[#252525]">
           
-          {registeredUser ? (
+          {requestedRole ? (
+            /* Clinician / Admin Disallowed Notice */
+            <div className="text-center space-y-5 py-4">
+              <div className="w-14 h-14 rounded-2xl bg-[#EDE8DE] border border-[#C8B58D]/40 text-[#252525] flex items-center justify-center mx-auto shadow-xs">
+                <ShieldCheck className="w-7 h-7 text-[#C8B58D]" />
+              </div>
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#594723] bg-[#EDE8DE] px-3 py-1 rounded-full border border-[#C8B58D]/40">
+                  Provisioned Accounts Only
+                </span>
+                <h2 className="text-xl font-extrabold text-[#252525] font-display tracking-tight mt-3">
+                  {requestedRole === 'doctor' ? 'Doctor Accounts' : 'Admin Accounts'}
+                </h2>
+                <p className="text-xs text-[#6F6D69] mt-2 max-w-sm mx-auto leading-relaxed">
+                  {requestedRole === 'doctor'
+                    ? 'Doctor accounts are provisioned by Dentiflow administrators. Clinician self-registration is disabled for clinic security.'
+                    : 'Admin accounts are provisioned by Dentiflow administrators. Public administrative registration is not permitted.'}
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => onNavigateSignIn(requestedRole)}
+                  className="btn-primary w-full py-3 px-4 flex items-center justify-center gap-2 cursor-pointer text-xs"
+                >
+                  <span>Go to {requestedRole === 'doctor' ? 'Doctor' : 'Admin'} Sign In</span>
+                  <ArrowRight className="w-4 h-4 text-[#C8B58D]" />
+                </button>
+              </div>
+            </div>
+          ) : registeredUser ? (
             /* Registration Success Display */
             <div className="text-center space-y-5 py-2">
               <div className="w-14 h-14 rounded-2xl bg-emerald-100 border border-emerald-200 text-emerald-800 flex items-center justify-center mx-auto shadow-xs">
@@ -215,50 +258,18 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
               </button>
             </div>
           ) : (
-            /* Registration Form */
+            /* Patient Registration Form */
             <>
               <div className="text-center mb-6 relative">
                 <div className="w-12 h-12 rounded-2xl bg-[#EDE8DE] border border-[#C8B58D]/30 text-[#252525] flex items-center justify-center mx-auto mb-3 shadow-xs">
                   <Sparkles className="w-6 h-6 text-[#C8B58D]" />
                 </div>
                 <h1 className="text-2xl font-extrabold text-[#252525] font-display tracking-tight">
-                  Account Registration
+                  Patient Registration
                 </h1>
                 <p className="text-xs text-[#6F6D69] font-medium mt-1">
-                  Create your Oralix account to access digital portals &amp; care records
+                  Create your patient account to access digital portals &amp; care records
                 </p>
-              </div>
-
-              {/* Account Type Selector Tabs */}
-              <div className="flex bg-[#EDE8DE]/60 p-1 rounded-2xl border border-[#C8B58D]/30 mb-4">
-                <button
-                  type="button"
-                  onClick={() => setSignupRole('patient')}
-                  className={`flex-1 py-2 text-xs font-extrabold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                    signupRole === 'patient'
-                      ? 'bg-white text-[#252525] shadow-xs border border-stone-200/80 font-black'
-                      : 'text-[#6F6D69] hover:text-[#252525]'
-                  }`}
-                >
-                  <span>👤</span>
-                  <span>Patient Account</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSignupRole('doctor')}
-                  className={`flex-1 py-2 text-xs font-extrabold rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                    signupRole === 'doctor'
-                      ? 'bg-white text-[#252525] shadow-xs border border-stone-200/80 font-black'
-                      : 'text-[#6F6D69] hover:text-[#252525]'
-                  }`}
-                >
-                  <span>🩺</span>
-                  <span>Clinician / Fellow</span>
-                </button>
-              </div>
-
-              <div className="mb-4 p-2.5 bg-[#EDE8DE]/40 border border-stone-200/80 rounded-xl text-xs font-semibold text-[#6F6D69] text-center">
-                Selected account type: <span className="text-[#252525] font-extrabold uppercase">{signupRole === 'doctor' ? 'Doctor / Clinician' : 'Patient'}</span>
               </div>
 
               {/* Error Banner */}
@@ -402,13 +413,28 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({
                 </button>
               </form>
 
+              {/* Social Auth Divider */}
+              <div className="relative my-5 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-stone-200/90" />
+                </div>
+                <div className="relative bg-white/95 px-3 text-[10px] font-bold text-[#8C8880] uppercase tracking-widest">
+                  or
+                </div>
+              </div>
+
+              {/* Icon-Only Social Sign-In */}
+              <div className="flex justify-center pb-1">
+                <GoogleSignInButton onError={(msg) => setError(msg)} />
+              </div>
+
               {/* Switch to Sign In */}
               <div className="mt-6 pt-4 border-t border-stone-200/80 text-center">
                 <p className="text-xs text-[#6F6D69]">
                   Already have an Oralix account?{' '}
                   <button
                     type="button"
-                    onClick={onNavigateSignIn}
+                    onClick={() => onNavigateSignIn('patient')}
                     className="text-[#252525] hover:text-[#594723] font-bold transition ml-1 cursor-pointer underline underline-offset-4 decoration-[#C8B58D]/60 hover:decoration-[#C8B58D]"
                   >
                     Sign In →

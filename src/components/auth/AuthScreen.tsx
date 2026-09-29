@@ -3,6 +3,8 @@ import { ToothIcon } from '../common/ToothIcon';
 import { User, UserRole } from '../../types';
 import { INITIAL_USERS } from '../../data/seedData';
 import { SecurityService } from '../../utils/security';
+import { StorageService } from '../../utils/storage';
+import { AuthService, generateOralixId, hashPassword } from '../../utils/authService';
 import { BackgroundStorage, DENTI_PRESETS } from '../../utils/backgroundStorage';
 import { BackgroundConfig } from '../../types/background';
 import {

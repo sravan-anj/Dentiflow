@@ -8,6 +8,7 @@ export interface User {
   role: UserRole;
   passwordHash?: string;
   avatarText: string;
+  avatarUrl?: string;
   phone?: string;
   specialization?: string;
   patientId?: string; // If role is patient, links to patient profile
@@ -19,6 +20,7 @@ export interface User {
   status?: 'active' | 'on_leave' | 'inactive';
   address?: string;
   emergencyContact?: string;
+  mustChangePassword?: boolean;
 }
 
 export type ToothConditionType = 

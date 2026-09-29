@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StorageService } from './utils/storage';
+import { supabase } from './utils/supabaseClient';
+import { AuthService } from './utils/authService';
 import { BackgroundStorage } from './utils/backgroundStorage';
 import { SecurityService } from './utils/security';
 import { BackgroundConfig } from './types/background';
@@ -47,6 +49,7 @@ import { ProfileView } from './components/profile/ProfileView';
 import { GlobalSearchModal } from './components/common/GlobalSearchModal';
 import { EditProfileModal } from './components/profile/EditProfileModal';
 import { AccountAccessView } from './components/accountAccess/AccountAccessView';
+import { DoctorChangePasswordModal } from './components/auth/DoctorChangePasswordModal';
 import { ShieldCheck } from 'lucide-react';
 
 function MainApp() {
@@ -56,24 +59,87 @@ function MainApp() {
   const [currentUser, setCurrentUser] = useState<User | null>(() => StorageService.getCurrentUser());
   const [adminOriginalUser, setAdminOriginalUser] = useState<User | null>(null);
 
-  // Startup Session Persistence & Canonical User Sync
+  // Doctor forced password change reminder state
+  const [isDoctorPasswordModalOpen, setIsDoctorPasswordModalOpen] = useState(false);
+
   useEffect(() => {
-    const storedUser = StorageService.getCurrentUser();
-    if (storedUser) {
-      const allUsers = StorageService.getUsers();
-      const canonicalUser = allUsers.find(
-        u => (u.id && u.id === storedUser.id) ||
-             (u.email && storedUser.email && u.email.toLowerCase().trim() === storedUser.email.toLowerCase().trim()) ||
-             (u.oralixId && storedUser.oralixId && u.oralixId.toLowerCase().trim() === storedUser.oralixId.toLowerCase().trim())
-      );
-      if (canonicalUser) {
-        setCurrentUser(canonicalUser);
-        StorageService.saveCurrentUser(canonicalUser);
-      } else {
-        StorageService.clearCurrentUser();
-        setCurrentUser(null);
+    if (currentUser?.role === 'doctor' && currentUser.mustChangePassword) {
+      setIsDoctorPasswordModalOpen(true);
+    } else {
+      setIsDoctorPasswordModalOpen(false);
+    }
+  }, [currentUser?.id, currentUser?.mustChangePassword]);
+
+  // Startup Session Persistence & Supabase Cloud Sync
+  useEffect(() => {
+    let isMounted = true;
+
+    // Inspect URL for OAuth callback parameters or errors
+    if (typeof window !== 'undefined') {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const searchParams = new URLSearchParams(window.location.search);
+      const errorDescription =
+        hashParams.get('error_description') ||
+        searchParams.get('error_description') ||
+        hashParams.get('error') ||
+        searchParams.get('error');
+
+      if (errorDescription) {
+        window.history.replaceState(null, '', window.location.pathname);
+        showToast(
+          decodeURIComponent(errorDescription).replace(/\+/g, ' '),
+          'error'
+        );
+      } else if (hashParams.get('access_token') || searchParams.get('code')) {
+        setTimeout(() => {
+          if (window.location.hash || window.location.search) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        }, 800);
       }
     }
+
+    // Check active Supabase session
+    AuthService.getCurrentUser().then(user => {
+      if (isMounted && user) {
+        setCurrentUser(user);
+        StorageService.saveCurrentUser(user);
+      }
+    });
+
+    // Listen to Supabase Auth State changes
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!isMounted) return;
+      if (session?.user) {
+        const user = await AuthService.getCurrentUser();
+        if (isMounted && user) {
+          setCurrentUser(user);
+          StorageService.saveCurrentUser(user);
+        }
+      } else {
+        const local = StorageService.getCurrentUser();
+        if (!local) setCurrentUser(null);
+      }
+    });
+
+    // Fetch fresh database records from Supabase PostgreSQL
+    StorageService.fetchAllFromSupabase().then(data => {
+      if (!isMounted) return;
+      if (data.patients?.length) setPatients(data.patients);
+      if (data.appointments?.length) setAppointments(data.appointments);
+      if (data.toothFindings?.length) setToothFindings(data.toothFindings);
+      if (data.treatmentPlans?.length) setTreatmentPlans(data.treatmentPlans);
+      if (data.clinicalNotes?.length) setClinicalNotes(data.clinicalNotes);
+      if (data.invoices?.length) setInvoices(data.invoices);
+      if (data.inventory?.length) setInventory(data.inventory);
+      if (data.staff?.length) setStaff(data.staff);
+      if (data.queue?.length) setQueue(data.queue);
+    });
+
+    return () => {
+      isMounted = false;
+      authListener?.subscription?.unsubscribe();
+    };
   }, []);
 
   // Fallback guard for unknown or corrupt user role
@@ -128,20 +194,64 @@ function MainApp() {
     return false;
   });
 
+  const [signInInitialRole, setSignInInitialRole] = useState<UserRole>(() => {
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const roleParam = searchParams.get('role')?.toLowerCase();
+      if (roleParam === 'doctor' || roleParam === 'admin') return roleParam as UserRole;
+    }
+    return 'patient';
+  });
+
   // Public View Routing (Landing Page vs Dedicated Auth Pages)
   const [publicView, setPublicView] = useState<'landing' | 'signin' | 'signup'>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
       if (path.includes('signin') || path.includes('login')) return 'signin';
-      if (path.includes('signup') || path.includes('register')) return 'signup';
+      if (path.includes('signup') || path.includes('register')) {
+        const searchParams = new URLSearchParams(window.location.search);
+        const roleParam = searchParams.get('role')?.toLowerCase();
+        // Redirect doctor/admin signup attempts to signin immediately
+        if (roleParam === 'doctor' || roleParam === 'admin' || path.includes('doctor') || path.includes('admin')) {
+          return 'signin';
+        }
+        return 'signup';
+      }
       if (path.includes('book') || path.includes('appointment')) return 'signin';
     }
     return 'landing';
   });
 
-  const handleNavigateAuth = (mode: 'landing' | 'signin' | 'signup') => {
+  // Guard against bypassing UI by directly navigating to a registration route with doctor or admin role
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      const searchParams = new URLSearchParams(window.location.search);
+      const roleParam = searchParams.get('role')?.toLowerCase();
+      if (
+        (path.includes('signup') || path.includes('register')) &&
+        (roleParam === 'doctor' || roleParam === 'admin' || path.includes('doctor') || path.includes('admin'))
+      ) {
+        const targetRole: UserRole = (roleParam === 'admin' || path.includes('admin')) ? 'admin' : 'doctor';
+        setSignInInitialRole(targetRole);
+        setPublicView('signin');
+        try {
+          window.history.replaceState(null, '', `/signin?role=${targetRole}`);
+        } catch (_) {}
+        showToast(
+          `${targetRole === 'doctor' ? 'Doctor' : 'Admin'} accounts are provisioned by Dentiflow administrators. Please sign in with your credentials.`,
+          'info'
+        );
+      }
+    }
+  }, [showToast]);
+
+  const handleNavigateAuth = (mode: 'landing' | 'signin' | 'signup', role?: UserRole) => {
+    if (role) {
+      setSignInInitialRole(role);
+    }
     setPublicView(mode);
-    const path = mode === 'landing' ? '/' : `/${mode}`;
+    const path = mode === 'landing' ? '/' : role ? `/${mode}?role=${role}` : `/${mode}`;
     try {
       window.history.pushState(null, '', path);
     } catch (_) {}
@@ -488,6 +598,7 @@ function MainApp() {
       details: 'User voluntarily signed out of terminal',
       status: 'SUCCESS'
     });
+    AuthService.signOut();
     StorageService.clearCurrentUser();
     setCurrentUser(null);
     handleNavigateAuth('landing');
@@ -500,6 +611,7 @@ function MainApp() {
       <div className="landing-ecosystem min-h-screen bg-slate-950 text-white">
         {publicView === 'signin' ? (
           <SignInPage
+            initialRole={signInInitialRole}
             onLogin={setCurrentUser}
             onNavigateLanding={() => handleNavigateAuth('landing')}
             onNavigateSignUp={() => handleNavigateAuth('signup')}
@@ -508,7 +620,7 @@ function MainApp() {
           <SignUpPage
             onLogin={setCurrentUser}
             onNavigateLanding={() => handleNavigateAuth('landing')}
-            onNavigateSignIn={() => handleNavigateAuth('signin')}
+            onNavigateSignIn={(role) => handleNavigateAuth('signin', role || 'patient')}
           />
         ) : (
           <LandingPage
@@ -802,6 +914,19 @@ function MainApp() {
         onSelectPatient={id => setSelectedPatientId(id)}
         onNavigate={handleNavigateTab}
       />
+
+      {/* Doctor Initial Password Change Reminder Modal */}
+      {currentUser?.role === 'doctor' && (
+        <DoctorChangePasswordModal
+          isOpen={isDoctorPasswordModalOpen}
+          currentUser={currentUser}
+          onClose={() => setIsDoctorPasswordModalOpen(false)}
+          onPasswordChanged={updatedUser => {
+            handleUpdateCurrentUser(updatedUser);
+            showToast('Password updated successfully! Welcome to your clinician portal.', 'success');
+          }}
+        />
+      )}
     </div>
   );
 }
