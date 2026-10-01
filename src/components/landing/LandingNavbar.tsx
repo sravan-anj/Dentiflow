@@ -5,18 +5,21 @@ import {
   ArrowUpRight,
   Menu,
   X,
-  UserCheck
+  UserCheck,
+  Building
 } from 'lucide-react';
 
 interface LandingNavbarProps {
   onOpenBooking: () => void;
   onOpenPortal: () => void;
+  onOpenReceptionist?: () => void;
   onNavigateAuth: (mode: 'signin' | 'signup') => void;
 }
 
 export const LandingNavbar: React.FC<LandingNavbarProps> = ({
   onOpenBooking,
   onOpenPortal,
+  onOpenReceptionist,
   onNavigateAuth
 }) => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -102,6 +105,18 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
 
           {/* Right Action Cluster */}
           <div className="hidden lg:flex items-center gap-3">
+            {onOpenReceptionist && (
+              <button
+                type="button"
+                onClick={onOpenReceptionist}
+                className="px-4 py-2.5 rounded-full text-xs font-bold text-slate-200 hover:text-white bg-white/5 hover:bg-white/15 border border-white/15 backdrop-blur-md transition-all duration-200 shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
+                title="Receptionist Portal (/receptionist)"
+              >
+                <Building className="w-3.5 h-3.5 text-[#C8B58D]" />
+                <span>Reception Desk</span>
+              </button>
+            )}
+
             {/* Sign In Portal Link */}
             <button
               type="button"
@@ -168,6 +183,19 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
                   Register
                 </button>
               </div>
+              {onOpenReceptionist && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenReceptionist();
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-[#1A1A1A] text-white font-bold text-xs text-center border border-white/10 cursor-pointer active:scale-95 transition flex items-center justify-center gap-1.5"
+                >
+                  <Building className="w-3.5 h-3.5 text-[#C8B58D]" />
+                  <span>Receptionist Desk</span>
+                </button>
+              )}
             </div>
           </div>
         )}

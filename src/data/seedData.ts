@@ -9,7 +9,8 @@ import {
   Invoice,
   InventoryItem,
   StaffMember,
-  User
+  User,
+  TreatmentCatalogueItem
 } from '../types';
 import { hashPassword } from '../utils/authService';
 
@@ -421,6 +422,73 @@ export const INITIAL_QUEUE: QueueItem[] = [
   }
 ];
 
+export const INITIAL_TREATMENT_CATALOGUE: TreatmentCatalogueItem[] = [
+  {
+    id: 'treat-1',
+    name: 'Root Canal',
+    price: 4500,
+    category: 'Endodontics',
+    description: 'Complete root canal therapy, rotary instrumentation, and bio-inert obturation',
+    code: 'RCT-01'
+  },
+  {
+    id: 'treat-2',
+    name: 'Tooth Implant',
+    price: 150000,
+    category: 'Implantology',
+    description: 'Titanium bio-compatible fixture with precision custom abutment',
+    code: 'IMP-01'
+  },
+  {
+    id: 'treat-3',
+    name: 'Dental Cleaning',
+    price: 1000,
+    category: 'Preventive',
+    description: 'Full-mouth ultrasonic scaling, plaque debridement, and stain removal',
+    code: 'CLN-01'
+  },
+  {
+    id: 'treat-4',
+    name: 'Tooth Extraction',
+    price: 1500,
+    category: 'Oral Surgery',
+    description: 'Atraumatic tooth extraction under local anaesthesia with socket preservation',
+    code: 'EXT-01'
+  },
+  {
+    id: 'treat-5',
+    name: 'Dental Filling',
+    price: 1200,
+    category: 'Restorative',
+    description: 'Tooth-coloured light-cure nano-hybrid composite resin restoration',
+    code: 'FIL-01'
+  },
+  {
+    id: 'treat-6',
+    name: 'Dental X-Ray',
+    price: 500,
+    category: 'Radiology / Diagnostics',
+    description: 'High-definition digital intraoral periapical radiograph (IOPA) with instant sensor',
+    code: 'RAD-01'
+  },
+  {
+    id: 'treat-7',
+    name: 'Monolithic Zirconia Crown',
+    price: 8500,
+    category: 'Prosthodontics',
+    description: 'CAD/CAM milled biocompatible full-contour zirconia crown with 10-year warranty',
+    code: 'CRW-01'
+  },
+  {
+    id: 'treat-8',
+    name: 'Invisalign / Clear Aligners',
+    price: 65000,
+    category: 'Orthodontics',
+    description: 'Custom clear orthodontic movement trays with 3D digital smile simulation',
+    code: 'ALN-01'
+  }
+];
+
 export const INITIAL_TREATMENT_PLANS: TreatmentPlan[] = [
   {
     id: 'plan-1',
@@ -572,155 +640,239 @@ export const INITIAL_PRESCRIPTIONS: Prescription[] = [
   }
 ];
 
+const getSeedDate = (offsetDays: number = 0) => {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export const INITIAL_INVOICES: Invoice[] = [
   {
-    id: 'inv-1',
-    invoiceNumber: 'DF-INV-2026-042',
+    id: 'inv-seed-1',
+    invoiceNumber: 'INV-2026-081',
     patientId: 'p-1',
     patientName: 'Aravind Kumar',
     patientCode: 'DF-2026-001',
-    date: '2026-09-12',
-    dueDate: '2026-09-26',
-    items: [
-      {
-        description: 'Comprehensive Oral Evaluation (D0150)',
-        code: 'D0150',
-        quantity: 1,
-        unitPrice: 800,
-        total: 800
-      },
-      {
-        description: 'Digital Intraoral Periapical X-Ray (RVG)',
-        code: 'D0220',
-        quantity: 2,
-        unitPrice: 350,
-        total: 700
-      },
-      {
-        description: 'Molar Root Canal Therapy - Part 1 (D3330)',
-        code: 'D3330',
-        tooth: 16,
-        quantity: 1,
-        unitPrice: 5000,
-        total: 5000
-      }
-    ],
-    subtotal: 6500,
-    tax: 0,
-    discount: 500,
-    total: 6000,
-    amountPaid: 1500,
-    balanceDue: 4500,
-    status: 'partial',
-    paymentMethod: 'UPI'
-  },
-  {
-    id: 'inv-4',
-    invoiceNumber: 'DF-INV-2026-045',
-    patientId: 'p-1',
-    patientName: 'Aravind Kumar',
-    patientCode: 'DF-2026-001',
-    date: '2026-09-18',
-    dueDate: '2026-10-02',
-    items: [
-      {
-        description: 'Monolithic Zirconia Crown - Tooth #16 (D2740)',
-        code: 'D2740',
-        tooth: 16,
-        quantity: 1,
-        unitPrice: 8500,
-        total: 8500
-      },
-      {
-        description: 'Core Buildup & Fiber Post Placement (D2950)',
-        code: 'D2950',
-        tooth: 16,
-        quantity: 1,
-        unitPrice: 3800,
-        total: 3800
-      }
-    ],
-    subtotal: 12300,
-    tax: 0,
-    discount: 800,
-    total: 11500,
-    amountPaid: 3000,
-    balanceDue: 8500,
-    status: 'partial',
-    paymentMethod: 'Card / POS'
-  },
-  {
-    id: 'inv-2',
-    invoiceNumber: 'DF-INV-2026-039',
-    patientId: 'p-2',
-    patientName: 'Vishal Rao',
-    patientCode: 'DF-2026-002',
-    date: '2026-09-10',
-    dueDate: '2026-09-10',
-    items: [
-      {
-        description: 'Preventive Dental Prophylaxis & Scaling (D1110)',
-        code: 'D1110',
-        quantity: 1,
-        unitPrice: 2200,
-        total: 2200
-      },
-      {
-        description: 'Fluoride Topical Gel Application (D1206)',
-        code: 'D1206',
-        quantity: 1,
-        unitPrice: 800,
-        total: 800
-      }
-    ],
-    subtotal: 3000,
-    tax: 0,
-    discount: 0,
-    total: 3000,
-    amountPaid: 3000,
+    patientAge: 42,
+    patientGender: 'Male',
+    date: getSeedDate(0), // Today
+    dueDate: getSeedDate(14),
+    description: 'Tooth #16 Root Canal Preparation & Digital Diagnostic Intraoral Scan',
+    attendingDoctor: 'Dr. Ananya Sharma',
+    subtotal: 14500,
+    discount: 1450,
+    discountType: 'percentage',
+    discountValue: 10,
+    netAmount: 13050,
+    total: 13050,
+    totalAmount: 13050,
+    amountPaid: 13050,
     balanceDue: 0,
     status: 'paid',
-    paymentMethod: 'Card / POS'
+    paymentMethod: 'UPI',
+    items: [
+      {
+        id: 'inv-item-1a',
+        description: 'Single Sitting Root Canal (Molar) - Tooth #16',
+        code: 'RCT-01',
+        tooth: 16,
+        quantity: 1,
+        unitPrice: 12000,
+        total: 12000
+      },
+      {
+        id: 'inv-item-1b',
+        description: 'Intraoral Digital Radiovisiography (RVG)',
+        code: 'DIAG-02',
+        tooth: 16,
+        quantity: 1,
+        unitPrice: 2500,
+        total: 2500
+      }
+    ]
   },
   {
-    id: 'inv-3',
-    invoiceNumber: 'DF-INV-2026-041',
+    id: 'inv-seed-2',
+    invoiceNumber: 'INV-2026-082',
     patientId: 'p-3',
     patientName: 'Medha Nair',
     patientCode: 'DF-2026-003',
-    date: '2026-09-08',
-    dueDate: '2026-09-22',
+    patientAge: 29,
+    patientGender: 'Female',
+    date: getSeedDate(0), // Today
+    dueDate: getSeedDate(7),
+    description: 'Crown Margin Evaluation & Monolithic Zirconia Crown',
+    attendingDoctor: 'Dr. Vikram Mehta',
+    subtotal: 18000,
+    discount: 2000,
+    discountType: 'flat',
+    discountValue: 2000,
+    netAmount: 16000,
+    total: 16000,
+    totalAmount: 16000,
+    amountPaid: 8000,
+    balanceDue: 8000,
+    status: 'partial',
+    paymentMethod: 'Credit Card',
     items: [
       {
-        description: 'Consultation & Clinical Photography',
-        code: 'D0140',
+        id: 'inv-item-2a',
+        description: 'Monolithic Multilayered Zirconia Crown - Tooth #21',
+        code: 'CRW-02',
+        tooth: 21,
+        quantity: 1,
+        unitPrice: 18000,
+        total: 18000
+      }
+    ]
+  },
+  {
+    id: 'inv-seed-3',
+    invoiceNumber: 'INV-2026-083',
+    patientId: 'p-2',
+    patientName: 'Vishal Rao',
+    patientCode: 'DF-2026-002',
+    patientAge: 35,
+    patientGender: 'Male',
+    date: getSeedDate(0), // Today
+    dueDate: getSeedDate(5),
+    description: 'Full Mouth Ultrasonic Scaling & Subgingival Irrigation',
+    attendingDoctor: 'Dr. Priya Sen',
+    subtotal: 3500,
+    discount: 500,
+    discountType: 'flat',
+    discountValue: 500,
+    netAmount: 3000,
+    total: 3000,
+    totalAmount: 3000,
+    amountPaid: 0,
+    balanceDue: 3000,
+    status: 'unpaid',
+    items: [
+      {
+        id: 'inv-item-3a',
+        description: 'Ultrasonic Deep Prophylaxis Scaling & Stain Removal',
+        code: 'SCL-01',
+        quantity: 1,
+        unitPrice: 2500,
+        total: 2500
+      },
+      {
+        id: 'inv-item-3b',
+        description: 'Subgingival Chlorhexidine Antimicrobial Irrigation',
+        code: 'PERIO-01',
         quantity: 1,
         unitPrice: 1000,
         total: 1000
-      },
+      }
+    ]
+  },
+  {
+    id: 'inv-seed-4',
+    invoiceNumber: 'INV-2026-079',
+    patientId: 'p-4',
+    patientName: 'Lokesh Iyer',
+    patientCode: 'DF-2026-004',
+    patientAge: 51,
+    patientGender: 'Male',
+    date: getSeedDate(-1), // Yesterday
+    dueDate: getSeedDate(10),
+    description: 'Direct Light-Cure Composite Restoration - Tooth #36',
+    attendingDoctor: 'Dr. Ananya Sharma',
+    subtotal: 4500,
+    discount: 0,
+    discountType: 'percentage',
+    discountValue: 0,
+    netAmount: 4500,
+    total: 4500,
+    totalAmount: 4500,
+    amountPaid: 4500,
+    balanceDue: 0,
+    status: 'paid',
+    paymentMethod: 'UPI',
+    items: [
       {
-        description: 'OPG Panoramic Dental Radiograph',
-        code: 'D0330',
-        quantity: 1,
-        unitPrice: 1500,
-        total: 1500
-      },
-      {
-        description: 'Crown Removal & Diagnostic Exploration',
-        code: 'D2980',
+        id: 'inv-item-4a',
+        description: 'Posterior Nano-Hybrid Composite Restoration (MOD)',
+        code: 'FILL-02',
         tooth: 36,
         quantity: 1,
-        unitPrice: 10000,
-        total: 10000
+        unitPrice: 4500,
+        total: 4500
       }
-    ],
-    subtotal: 12500,
-    tax: 0,
-    discount: 0,
-    total: 12500,
-    amountPaid: 0,
-    balanceDue: 12500,
-    status: 'unpaid'
+    ]
+  },
+  {
+    id: 'inv-seed-5',
+    invoiceNumber: 'INV-2026-075',
+    patientId: 'p-5',
+    patientName: 'Sunita Reddy',
+    patientCode: 'DF-2026-005',
+    patientAge: 38,
+    patientGender: 'Female',
+    date: getSeedDate(-5), // 5 days ago
+    dueDate: getSeedDate(3),
+    description: 'Orthodontic Aligners Case Assessment & 3D Virtual Treatment Setup',
+    attendingDoctor: 'Dr. Priya Sen',
+    subtotal: 25000,
+    discount: 2500,
+    discountType: 'percentage',
+    discountValue: 10,
+    netAmount: 22500,
+    total: 22500,
+    totalAmount: 22500,
+    amountPaid: 15000,
+    balanceDue: 7500,
+    status: 'partial',
+    paymentMethod: 'Debit Card',
+    items: [
+      {
+        id: 'inv-item-5a',
+        description: 'Clear Aligner Digital 3D Simulation & Staging Package',
+        code: 'ORTHO-03',
+        quantity: 1,
+        unitPrice: 25000,
+        total: 25000
+      }
+    ]
+  },
+  {
+    id: 'inv-seed-6',
+    invoiceNumber: 'INV-2026-070',
+    patientId: 'p-1',
+    patientName: 'Aravind Kumar',
+    patientCode: 'DF-2026-001',
+    patientAge: 42,
+    patientGender: 'Male',
+    date: getSeedDate(-12), // 12 days ago
+    dueDate: getSeedDate(-2),
+    description: 'Emergency Operatory Toothache Consult & Temporary Pulp Dressing',
+    attendingDoctor: 'Dr. Ananya Sharma',
+    subtotal: 3000,
+    discount: 500,
+    discountType: 'flat',
+    discountValue: 500,
+    netAmount: 2500,
+    total: 2500,
+    totalAmount: 2500,
+    amountPaid: 2500,
+    balanceDue: 0,
+    status: 'paid',
+    paymentMethod: 'Cash',
+    items: [
+      {
+        id: 'inv-item-6a',
+        description: 'Emergency Pulpotomy & Sedative Dressing',
+        code: 'EMRG-01',
+        tooth: 16,
+        quantity: 1,
+        unitPrice: 3000,
+        total: 3000
+      }
+    ]
   }
 ];
 

@@ -117,6 +117,17 @@ export interface TreatmentProcedureItem {
   status: 'pending' | 'in_progress' | 'done';
 }
 
+export interface TreatmentCatalogueItem {
+  id: string;
+  name: string;
+  price: number;
+  category?: string;
+  description?: string;
+  code?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface TreatmentPlan {
   id: string;
   patientId: string;
@@ -181,6 +192,7 @@ export interface Prescription {
 export type InvoiceStatus = 'paid' | 'partial' | 'unpaid' | 'partially_paid';
 
 export interface InvoiceItem {
+  id?: string;
   description: string;
   code?: string;
   tooth?: number;
@@ -195,19 +207,32 @@ export interface Invoice {
   patientId: string;
   patientName: string;
   patientCode?: string;
+  patientAge?: number;
+  patientGender?: 'Male' | 'Female' | 'Other';
   date: string;
   dueDate: string;
   items?: InvoiceItem[];
   description?: string;
+  diagnosis?: string;
+  attendingDoctor?: string;
+  appointmentId?: string;
+  appointmentDate?: string;
+  appointmentTime?: string;
+  chiefComplaint?: string;
   subtotal?: number;
   tax?: number;
   discount?: number;
+  discountType?: 'percentage' | 'flat';
+  discountValue?: number;
+  netAmount?: number;
   total?: number;
   totalAmount?: number;
   amountPaid: number;
   balanceDue: number;
   status: InvoiceStatus;
   paymentMethod?: 'QR Payment' | 'UPI' | 'Debit Card' | 'Credit Card' | 'Cash' | 'Insurance' | 'Card / POS' | 'upi' | 'card' | 'cash' | 'insurance';
+  sentToReceptionist?: boolean;
+  isDraft?: boolean;
 }
 
 export interface InventoryItem {
