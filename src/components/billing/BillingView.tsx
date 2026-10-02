@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { Invoice, Patient, User, InvoiceStatus, PaymentTransaction, PaymentState } from '../../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { Invoice, Patient, User, InvoiceStatus, PaymentTransaction, PaymentState, Appointment, TreatmentPlan } from '../../types';
 import { useToast } from '../common/Toast';
 import { StorageService } from '../../utils/storage';
 import { downloadTaxInvoicePdfBlob } from '../../utils/pdfGenerator';
 import { paymentService } from '../../utils/paymentService';
+import { PatientBillView } from './PatientBillView';
+import { BillingDatePickerPopover } from './BillingDatePickerPopover';
 import {
   CreditCard,
   Plus,
@@ -30,13 +32,26 @@ import {
   RotateCcw,
   Landmark,
   Wallet,
-  Loader2
+  Loader2,
+  Send,
+  ArrowRight,
+  UserCheck,
+  FileDown,
+  Trash2,
+  Calendar,
+  CalendarDays,
+  Filter
 } from 'lucide-react';
 
 interface BillingViewProps {
   currentUser: User;
   invoices: Invoice[];
   patients: Patient[];
+  appointments?: Appointment[];
+  treatmentPlans?: TreatmentPlan[];
+  targetPatientId?: string | null;
+  targetAppointmentId?: string | null;
+  onClearTargetPatient?: () => void;
   onSaveInvoices: (invoices: Invoice[]) => void;
   onSelectPatient: (patientId: string) => void;
   onNavigateToChart: () => void;
@@ -86,10 +101,64 @@ const MockLocalQRCode: React.FC<{ amount: number; invoiceNo: string }> = ({ amou
   </div>
 );
 
+export type BillingDatePreset = 'today' | 'yesterday' | 'last7days' | 'thisMonth' | 'all' | 'custom';
+export type BillingStatusFilter = 'all' | 'paid' | 'outstanding';
+
+export const getLocalDateString = (d: Date = new Date()): string => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export const getRelativeDateString = (offsetDays: number): string => {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return getLocalDateString(d);
+};
+
+export const getFirstDayOfMonthString = (): string => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}-01`;
+};
+
+export const parseInvoiceDate = (dateStr?: string): string => {
+  if (!dateStr) return '';
+  return dateStr.split('T')[0].split(' ')[0];
+};
+
+export const formatDisplayDate = (dateStr?: string): string => {
+  if (!dateStr) return '';
+  const clean = parseInvoiceDate(dateStr);
+  const parts = clean.split('-');
+  if (parts.length === 3) {
+    const [y, m, d] = parts;
+    const year = Number(y);
+    const month = Number(m);
+    const day = Number(d);
+    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+      const dateObj = new Date(year, month - 1, day);
+      return dateObj.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      });
+    }
+  }
+  return dateStr;
+};
+
 export const BillingView: React.FC<BillingViewProps> = ({
   currentUser,
   invoices,
   patients,
+  appointments,
+  treatmentPlans,
+  targetPatientId,
+  targetAppointmentId,
+  onClearTargetPatient,
   onSaveInvoices,
   onSelectPatient,
   onNavigateToChart,
@@ -105,6 +174,58 @@ export const BillingView: React.FC<BillingViewProps> = ({
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<'UPI / QR' | 'Credit Card' | 'Debit Card' | 'Net Banking' | 'Wallet'>('UPI / QR');
   const [lastCompletedTxId, setLastCompletedTxId] = useState<string>('');
+
+  // Active Patient Bill Focus View State
+  const [activeBillPatient, setActiveBillPatient] = useState<{
+    patient: Patient;
+    invoice?: Invoice | null;
+    appointment?: Appointment | null;
+  } | null>(null);
+
+  const [highlightedInvoiceId, setHighlightedInvoiceId] = useState<string | null>(null);
+  const consumedTargetKeysRef = useRef<Set<string>>(new Set());
+
+  // Sync with target patient when navigated from external sections (e.g. Appointments)
+  useEffect(() => {
+    if (!targetPatientId) return;
+
+    const targetKey = `${targetPatientId}-${targetAppointmentId || ''}`;
+    if (consumedTargetKeysRef.current.has(targetKey)) {
+      return;
+    }
+    consumedTargetKeysRef.current.add(targetKey);
+
+    const pt =
+      patients.find(p => p.id === targetPatientId) ||
+      patients.find(p => p.name.toLowerCase() === targetPatientId.toLowerCase()) ||
+      null;
+
+    if (pt) {
+      const existingInv =
+        invoices.find(
+          i => (targetAppointmentId && i.appointmentId === targetAppointmentId) || i.patientId === pt.id
+        ) || null;
+
+      const allApts = appointments || StorageService.getAppointments();
+      const apt =
+        allApts.find(
+          a =>
+            (targetAppointmentId && a.id === targetAppointmentId) ||
+            a.patientId === pt.id ||
+            a.patientName.toLowerCase() === pt.name.toLowerCase()
+        ) || null;
+
+      setActiveBillPatient({
+        patient: pt,
+        invoice: existingInv,
+        appointment: apt
+      });
+    }
+
+    if (onClearTargetPatient) {
+      onClearTargetPatient();
+    }
+  }, [targetPatientId, targetAppointmentId, patients, appointments, onClearTargetPatient]);
   
   // Method-Specific Transaction Fields
   const [utrNumber, setUtrNumber] = useState(''); // UPI / QR UTR
@@ -139,20 +260,154 @@ export const BillingView: React.FC<BillingViewProps> = ({
     ? invoices.filter(i => i.patientId === (currentUser.patientId || 'p-1'))
     : invoices;
 
-  const filteredInvoices = displayedInvoices.filter(inv => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    const desc = inv.description || inv.items?.[0]?.description || '';
-    return (
-      inv.patientName.toLowerCase().includes(q) ||
-      inv.invoiceNumber.toLowerCase().includes(q) ||
-      desc.toLowerCase().includes(q)
-    );
-  });
+  // Filter & Single Date State (Default: Today's Bills)
+  const todayDateStr = getLocalDateString(new Date());
+  const [datePreset, setDatePreset] = useState<BillingDatePreset>('today');
+  const [selectedDate, setSelectedDate] = useState<string>(todayDateStr);
+  const [statusFilter, setStatusFilter] = useState<BillingStatusFilter>('all');
 
-  const totalBilled = displayedInvoices.reduce((a, b) => a + (b.totalAmount || b.total || 0), 0);
-  const totalPaid = displayedInvoices.reduce((a, b) => a + b.amountPaid, 0);
-  const totalDue = displayedInvoices.reduce((a, b) => a + b.balanceDue, 0);
+  const applyDatePreset = (preset: BillingDatePreset) => {
+    setDatePreset(preset);
+    const today = getLocalDateString(new Date());
+    if (preset === 'today') {
+      setSelectedDate(today);
+    } else if (preset === 'yesterday') {
+      setSelectedDate(getRelativeDateString(-1));
+    } else if (preset === 'last7days' || preset === 'thisMonth' || preset === 'all') {
+      setSelectedDate('');
+    }
+  };
+
+  const handleSingleDateChange = (val: string) => {
+    setSelectedDate(val);
+    if (!val) {
+      setDatePreset('all');
+      return;
+    }
+    const today = getLocalDateString(new Date());
+    const yest = getRelativeDateString(-1);
+    if (val === today) {
+      setDatePreset('today');
+    } else if (val === yest) {
+      setDatePreset('yesterday');
+    } else {
+      setDatePreset('custom');
+    }
+  };
+
+  const resetToToday = () => {
+    applyDatePreset('today');
+    setStatusFilter('all');
+    setSearchQuery('');
+  };
+
+  const clearAllDateFilter = () => {
+    applyDatePreset('all');
+  };
+
+  const isFilterModified =
+    datePreset !== 'today' ||
+    selectedDate !== todayDateStr ||
+    statusFilter !== 'all' ||
+    searchQuery.trim() !== '';
+
+  const isInvoiceMatchingDate = (invDate?: string) => {
+    const cleanDate = parseInvoiceDate(invDate);
+    if (!cleanDate) return false;
+
+    if (datePreset === 'all') return true;
+    if (datePreset === 'last7days') {
+      const today = getLocalDateString(new Date());
+      const sevenDaysAgo = getRelativeDateString(-6);
+      return cleanDate >= sevenDaysAgo && cleanDate <= today;
+    }
+    if (datePreset === 'thisMonth') {
+      const today = getLocalDateString(new Date());
+      const monthStart = getFirstDayOfMonthString();
+      return cleanDate >= monthStart && cleanDate <= today;
+    }
+    if (selectedDate) {
+      return cleanDate === selectedDate;
+    }
+    return true;
+  };
+
+  const isInvoiceMatchingStatus = (inv: Invoice) => {
+    const total = Number(inv.totalAmount || inv.total || 0);
+    const paid = Number(inv.amountPaid || 0);
+    const due = Number(
+      inv.balanceDue !== undefined && inv.balanceDue !== null
+        ? inv.balanceDue
+        : Math.max(0, total - paid)
+    );
+    const isPaid = due <= 0 || inv.status === 'paid';
+
+    if (statusFilter === 'paid') return isPaid;
+    if (statusFilter === 'outstanding') return !isPaid;
+    return true; // 'all'
+  };
+
+  const dateScopedInvoices = displayedInvoices.filter(inv => isInvoiceMatchingDate(inv.date));
+  const paidCountInScope = dateScopedInvoices.filter(inv => {
+    const total = Number(inv.totalAmount || inv.total || 0);
+    const paid = Number(inv.amountPaid || 0);
+    const due = Number(
+      inv.balanceDue !== undefined && inv.balanceDue !== null
+        ? inv.balanceDue
+        : Math.max(0, total - paid)
+    );
+    return due <= 0 || inv.status === 'paid';
+  }).length;
+  const outstandingCountInScope = dateScopedInvoices.length - paidCountInScope;
+
+  const getDatePresetLabel = (): string => {
+    switch (datePreset) {
+      case 'today':
+        return `Today's Bills (${formatDisplayDate(selectedDate) || 'Today'})`;
+      case 'yesterday':
+        return `Yesterday's Bills (${formatDisplayDate(selectedDate) || 'Yesterday'})`;
+      case 'last7days':
+        return 'Last 7 Days';
+      case 'thisMonth':
+        return 'This Month';
+      case 'all':
+        return 'All Historical Bills';
+      case 'custom':
+        return selectedDate ? formatDisplayDate(selectedDate) : 'Selected Date';
+      default:
+        return 'Selected Date';
+    }
+  };
+
+  const filteredInvoices = isPatient
+    ? displayedInvoices
+    : displayedInvoices.filter(inv => {
+        if (!isInvoiceMatchingDate(inv.date)) return false;
+        if (!isInvoiceMatchingStatus(inv)) return false;
+
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const desc = inv.description || inv.items?.[0]?.description || '';
+          return (
+            inv.patientName.toLowerCase().includes(q) ||
+            inv.invoiceNumber.toLowerCase().includes(q) ||
+            desc.toLowerCase().includes(q)
+          );
+        }
+        return true;
+      });
+
+  const totalBilled = isPatient
+    ? displayedInvoices.reduce((a, b) => a + (b.totalAmount || b.total || 0), 0)
+    : filteredInvoices.reduce((a, b) => a + (Number(b.totalAmount) || Number(b.total) || 0), 0);
+
+  const totalPaid = isPatient
+    ? displayedInvoices.reduce((a, b) => a + b.amountPaid, 0)
+    : filteredInvoices.reduce((a, b) => a + Number(b.amountPaid || 0), 0);
+
+  const totalDue = isPatient
+    ? displayedInvoices.reduce((a, b) => a + b.balanceDue, 0)
+    : filteredInvoices.reduce((a, b) => a + Number(b.balanceDue || 0), 0);
 
   const handleDownloadInvoicePdf = (inv: Invoice) => {
     // Security check: Patients can only download their own invoice
@@ -334,13 +589,191 @@ export const BillingView: React.FC<BillingViewProps> = ({
       balanceDue: balance,
       status: status,
       paymentMethod: amountPaid > 0 ? 'UPI' : undefined,
-      description: description
+      description: description,
+      sentToReceptionist: true
     };
 
     onSaveInvoices([newInvoice, ...invoices]);
     setIsAddInvoiceModalOpen(false);
     showToast(`Created invoice ${newInvoice.invoiceNumber} for ${patient.name}`, 'success');
   };
+
+  const handleOpenPatientBill = (inv: Invoice) => {
+    const pt = patients.find(
+      p => p.id === inv.patientId || p.name.toLowerCase() === inv.patientName.toLowerCase()
+    ) || {
+      id: inv.patientId,
+      code: inv.patientCode || 'DF-2026-PAT',
+      name: inv.patientName,
+      age: inv.patientAge || 32,
+      gender: inv.patientGender || 'Male',
+      phone: '+91 98765 43210',
+      email: `${inv.patientName.toLowerCase().replace(/\s+/g, '.')}@example.com`,
+      balanceDue: inv.balanceDue,
+      allergies: [],
+      medicalAlerts: []
+    } as Patient;
+
+    const allApts = appointments || StorageService.getAppointments();
+    const apt = allApts.find(
+      a => a.id === inv.appointmentId || a.patientId === pt.id || a.patientName.toLowerCase() === pt.name.toLowerCase()
+    ) || null;
+
+    setActiveBillPatient({
+      patient: pt,
+      invoice: inv,
+      appointment: apt
+    });
+  };
+
+  const handleSavePatientBill = (
+    updatedInvoice: Invoice,
+    updatedPatientData: { age: number; gender: 'Male' | 'Female' | 'Other' }
+  ) => {
+    // 1. Prevent sync useEffect from ever re-opening this bill
+    if (targetPatientId) {
+      consumedTargetKeysRef.current.add(`${targetPatientId}-${targetAppointmentId || ''}`);
+      consumedTargetKeysRef.current.add(`${targetPatientId}-`);
+    }
+    if (activeBillPatient?.patient?.id) {
+      consumedTargetKeysRef.current.add(`${activeBillPatient.patient.id}-${activeBillPatient.appointment?.id || ''}`);
+      consumedTargetKeysRef.current.add(`${activeBillPatient.patient.id}-`);
+    }
+
+    // 2. Match existing invoice to update in place instead of creating duplicate bills on multiple clicks
+    const existingIndex = invoices.findIndex(
+      i =>
+        i.id === updatedInvoice.id ||
+        i.invoiceNumber === updatedInvoice.invoiceNumber ||
+        (activeBillPatient?.invoice?.id && i.id === activeBillPatient.invoice.id) ||
+        (updatedInvoice.appointmentId && i.appointmentId && i.appointmentId === updatedInvoice.appointmentId) ||
+        (i.patientId === updatedInvoice.patientId && i.status !== 'paid' && (!i.appointmentId || i.appointmentId === updatedInvoice.appointmentId)) ||
+        (i.patientId === updatedInvoice.patientId && !updatedInvoice.appointmentId) ||
+        (i.patientName.trim().toLowerCase() === updatedInvoice.patientName.trim().toLowerCase() && i.status !== 'paid')
+    );
+
+    let newInvoices: Invoice[];
+    let finalSavedInvoice: Invoice;
+
+    if (existingIndex >= 0) {
+      const existing = invoices[existingIndex];
+      finalSavedInvoice = {
+        ...updatedInvoice,
+        id: existing.id,
+        invoiceNumber: existing.invoiceNumber,
+        sentToReceptionist: true,
+        isDraft: updatedInvoice.isDraft ?? existing.isDraft ?? false
+      };
+      newInvoices = [...invoices];
+      newInvoices[existingIndex] = finalSavedInvoice;
+    } else {
+      finalSavedInvoice = {
+        ...updatedInvoice,
+        sentToReceptionist: true
+      };
+      newInvoices = [finalSavedInvoice, ...invoices];
+    }
+    onSaveInvoices(newInvoices);
+
+    const existingPatient = patients.find(p => p.id === updatedInvoice.patientId);
+    if (existingPatient) {
+      const patientTotalBalance = newInvoices
+        .filter(i => i.patientId === existingPatient.id)
+        .reduce((sum, inv) => sum + (inv.balanceDue || 0), 0);
+
+      const updatedPatient: Patient = {
+        ...existingPatient,
+        age: updatedPatientData.age,
+        gender: updatedPatientData.gender,
+        balanceDue: patientTotalBalance
+      };
+
+      StorageService.updatePatient(updatedPatient);
+      if (onSavePatients) {
+        onSavePatients(patients.map(p => (p.id === updatedPatient.id ? updatedPatient : p)));
+      }
+    }
+
+    // 3. Immediately close patient bill view and return to general billing table
+    setActiveBillPatient(null);
+    if (onClearTargetPatient) {
+      onClearTargetPatient();
+    }
+    setHighlightedInvoiceId(finalSavedInvoice.id);
+
+    showToast(`Bill ${finalSavedInvoice.invoiceNumber} saved & synced with Receptionist Desk for ${finalSavedInvoice.patientName}.`, 'success');
+  };
+
+  // Doctor delete invoice handler
+  const handleDeleteInvoice = (invoiceId: string) => {
+    const inv = invoices.find(i => i.id === invoiceId);
+    if (!inv) return;
+
+    if (window.confirm(`Are you sure you want to delete invoice ${inv.invoiceNumber} for ${inv.patientName}? This action cannot be undone.`)) {
+      const updatedInvoices = invoices.filter(i => i.id !== invoiceId);
+      onSaveInvoices(updatedInvoices);
+      StorageService.deleteInvoice(invoiceId);
+
+      const pt = patients.find(p => p.id === inv.patientId);
+      if (pt) {
+        const newBalance = updatedInvoices
+          .filter(i => i.patientId === pt.id)
+          .reduce((sum, i) => sum + (i.balanceDue || 0), 0);
+        const updatedPt = { ...pt, balanceDue: newBalance };
+        StorageService.updatePatient(updatedPt);
+        if (onSavePatients) {
+          onSavePatients(patients.map(p => (p.id === updatedPt.id ? updatedPt : p)));
+        }
+      }
+
+      showToast(`Invoice ${inv.invoiceNumber} deleted successfully.`, 'info');
+      if (activeBillPatient?.invoice?.id === invoiceId) {
+        setActiveBillPatient(null);
+      }
+    }
+  };
+
+  // Option 1: Save as Draft, clicking which will download the bill in PDF format
+  const handleSaveAsDraft = (inv: Invoice) => {
+    const pt = patients.find(p => p.id === inv.patientId) || currentPatient;
+    const draftInvoice: Invoice = {
+      ...inv,
+      isDraft: true
+    };
+    const existingIdx = invoices.findIndex(i => i.id === inv.id);
+    let updatedInvoices: Invoice[];
+    if (existingIdx >= 0) {
+      updatedInvoices = [...invoices];
+      updatedInvoices[existingIdx] = draftInvoice;
+    } else {
+      updatedInvoices = [draftInvoice, ...invoices];
+    }
+    onSaveInvoices(updatedInvoices);
+
+    downloadTaxInvoicePdfBlob(draftInvoice, pt);
+    showToast(`Bill ${inv.invoiceNumber} saved as Draft & downloaded in PDF format.`, 'success');
+  };
+
+
+  // If focused on a specific Patient Bill, replace the main content area
+  if (activeBillPatient) {
+    return (
+      <PatientBillView
+        patient={activeBillPatient.patient}
+        invoice={activeBillPatient.invoice}
+        appointment={activeBillPatient.appointment}
+        treatmentPlans={treatmentPlans}
+        onSave={handleSavePatientBill}
+        onDeleteInvoice={handleDeleteInvoice}
+        onBack={() => {
+          setActiveBillPatient(null);
+          if (onClearTargetPatient) {
+            onClearTargetPatient();
+          }
+        }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-8 pb-12">
@@ -573,46 +1006,282 @@ export const BillingView: React.FC<BillingViewProps> = ({
           </div>
 
           {/* Financial KPIs */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-2xs">
-              <div className="text-xs font-semibold text-gray-500">Total Billed</div>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
-                INR ₹{totalBilled.toLocaleString()}
-              </p>
-              <p className="text-[11px] text-gray-400 mt-1">From clinical treatments</p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Financial Overview
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#EDE8DE] text-[#252525] border border-[#C8B58D]/40 inline-flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-[#C8B58D]" />
+                  <span>{getDatePresetLabel()}</span>
+                </span>
+                {statusFilter !== 'all' && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-stone-100 text-stone-700 border border-stone-200">
+                    {statusFilter === 'paid' ? 'Paid Bills' : 'Outstanding Bills'}
+                  </span>
+                )}
+              </div>
+              {isFilterModified && (
+                <button
+                  type="button"
+                  onClick={resetToToday}
+                  className="text-[11px] font-bold text-amber-700 hover:text-amber-900 inline-flex items-center gap-1 hover:underline cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset to Today's Bills</span>
+                </button>
+              )}
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-2xs">
-              <div className="text-xs font-semibold text-gray-500">Collected Revenue</div>
-              <p className="text-2xl font-bold text-emerald-600 mt-1">
-                INR ₹{totalPaid.toLocaleString()}
-              </p>
-              <p className="text-[11px] text-emerald-700 font-semibold mt-1">Directly credited</p>
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-2xs">
+                <div className="text-xs font-semibold text-gray-500">Total Billed</div>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  INR ₹{totalBilled.toLocaleString()}
+                </p>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  From {filteredInvoices.length} {filteredInvoices.length === 1 ? 'treatment' : 'treatments'} ({getDatePresetLabel()})
+                </p>
+              </div>
 
-            <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-2xs">
-              <div className="text-xs font-semibold text-gray-500">Outstanding Balance Due</div>
-              <p className="text-2xl font-bold text-amber-600 mt-1">
-                INR ₹{totalDue.toLocaleString()}
-              </p>
-              <p className="text-[11px] text-gray-400 mt-1">Pending patient settlement</p>
+              <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-2xs">
+                <div className="text-xs font-semibold text-gray-500">Collected Revenue</div>
+                <p className="text-2xl font-bold text-emerald-600 mt-1">
+                  INR ₹{totalPaid.toLocaleString()}
+                </p>
+                <p className="text-[11px] text-emerald-700 font-semibold mt-1">
+                  Directly credited ({getDatePresetLabel()})
+                </p>
+              </div>
+
+              <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-2xs">
+                <div className="text-xs font-semibold text-gray-500">Outstanding Balance Due</div>
+                <p className="text-2xl font-bold text-amber-600 mt-1">
+                  INR ₹{totalDue.toLocaleString()}
+                </p>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Pending settlement ({getDatePresetLabel()})
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* Search Bar */}
-          <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-2xs flex items-center gap-2">
-            <Search className="w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search by invoice number, patient, or treatment..."
-              className="w-full text-xs bg-transparent focus:outline-none text-gray-800"
-            />
+          {/* Filter Bar: Placement directly above Invoice Table & alongside/beneath search */}
+          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-2xs space-y-3.5 relative z-20">
+            {/* Row 1: Search Bar + Payment Settlement Status Tabs */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              {/* Search Bar */}
+              <div className="relative flex-1 min-w-[240px]">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search by invoice number, patient, or treatment..."
+                  className="w-full text-xs pl-9 pr-8 py-2 bg-gray-50 hover:bg-white focus:bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#C8B58D] text-gray-800 transition"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Payment Settlement Status Tabs */}
+              <div className="inline-flex items-center p-1 bg-stone-100 rounded-lg border border-stone-200 self-start md:self-auto shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('all')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer flex items-center gap-1.5 ${
+                    statusFilter === 'all'
+                      ? 'bg-white text-[#252525] shadow-xs font-bold'
+                      : 'text-stone-600 hover:text-stone-900'
+                  }`}
+                >
+                  <span>All Statuses</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                    statusFilter === 'all' ? 'bg-[#252525] text-white' : 'bg-stone-200 text-stone-600'
+                  }`}>
+                    {dateScopedInvoices.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('paid')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer flex items-center gap-1.5 ${
+                    statusFilter === 'paid'
+                      ? 'bg-white text-emerald-800 shadow-xs font-bold ring-1 ring-emerald-500/20'
+                      : 'text-stone-600 hover:text-emerald-700'
+                  }`}
+                >
+                  <CheckCircle2 className={`w-3.5 h-3.5 ${statusFilter === 'paid' ? 'text-emerald-600' : 'text-stone-400'}`} />
+                  <span>Paid Bills</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                    statusFilter === 'paid' ? 'bg-emerald-600 text-white' : 'bg-emerald-100 text-emerald-800'
+                  }`}>
+                    {paidCountInScope}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('outstanding')}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer flex items-center gap-1.5 ${
+                    statusFilter === 'outstanding'
+                      ? 'bg-white text-amber-800 shadow-xs font-bold ring-1 ring-amber-500/20'
+                      : 'text-stone-600 hover:text-amber-700'
+                  }`}
+                >
+                  <Clock className={`w-3.5 h-3.5 ${statusFilter === 'outstanding' ? 'text-amber-600' : 'text-stone-400'}`} />
+                  <span>Remaining / Outstanding</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                    statusFilter === 'outstanding' ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    {outstandingCountInScope}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Row 2: Date Presets & Custom Date Range Pickers */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-2.5 border-t border-gray-100 relative z-20">
+              {/* Quick Period Presets */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] font-bold uppercase text-stone-400 mr-1 flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-[#C8B58D]" /> Period:
+                </span>
+
+                {/* Preset: Today's Bills */}
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('today')}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+                    datePreset === 'today'
+                      ? 'bg-[#252525] text-white shadow-2xs'
+                      : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${datePreset === 'today' ? 'bg-[#C8B58D]' : 'bg-stone-400'}`} />
+                  <span>Today's Bills</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('yesterday')}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-lg transition cursor-pointer ${
+                    datePreset === 'yesterday'
+                      ? 'bg-[#252525] text-white shadow-2xs'
+                      : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                  }`}
+                >
+                  Yesterday
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('last7days')}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-lg transition cursor-pointer ${
+                    datePreset === 'last7days'
+                      ? 'bg-[#252525] text-white shadow-2xs'
+                      : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                  }`}
+                >
+                  Last 7 Days
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('thisMonth')}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-lg transition cursor-pointer ${
+                    datePreset === 'thisMonth'
+                      ? 'bg-[#252525] text-white shadow-2xs'
+                      : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                  }`}
+                >
+                  This Month
+                </button>
+
+                {/* View All Bills / All Dates Option */}
+                <button
+                  type="button"
+                  onClick={() => applyDatePreset('all')}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-lg transition cursor-pointer ${
+                    datePreset === 'all'
+                      ? 'bg-[#252525] text-white shadow-2xs'
+                      : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                  }`}
+                >
+                  All Dates / View All Bills
+                </button>
+              </div>
+
+              {/* Single Date Picker Control & Reset */}
+              <div className="flex items-center justify-end gap-2.5 flex-wrap relative z-30 date-filter-group">
+                {(selectedDate !== todayDateStr || datePreset !== 'today') && (
+                  <button
+                    type="button"
+                    onClick={resetToToday}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#2B2823] bg-[#F0EDE6] hover:bg-[#E5E0D8] border border-[#E5E0D8] hover:border-[#D5CFC5] rounded-full shadow-2xs transition-all duration-200 ease-in-out animate-in fade-in cursor-pointer select-none"
+                    title="Reset to default Today's Bills view"
+                  >
+                    <RotateCcw className="w-3 h-3 text-[#C8B58D]" />
+                    <span>Reset to Today</span>
+                  </button>
+                )}
+
+                <BillingDatePickerPopover
+                  value={selectedDate}
+                  onChange={handleSingleDateChange}
+                  onClear={clearAllDateFilter}
+                />
+              </div>
+            </div>
+
+            {/* Scope Summary Strip */}
+            <div className="flex items-center justify-between text-[11px] text-stone-500 pt-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span>Showing</span>
+                <span className="font-bold text-gray-800">{filteredInvoices.length}</span>
+                <span>of</span>
+                <span className="font-bold text-gray-800">{displayedInvoices.length}</span>
+                <span>total bills</span>
+                <span className="text-stone-300">&bull;</span>
+                <span>Scope:</span>
+                <span className="font-semibold text-stone-700">{getDatePresetLabel()}</span>
+                {statusFilter !== 'all' && (
+                  <>
+                    <span className="text-stone-300">&bull;</span>
+                    <span>Status:</span>
+                    <span className="font-semibold text-stone-700">
+                      {statusFilter === 'paid' ? 'Paid Bills' : 'Remaining / Outstanding'}
+                    </span>
+                  </>
+                )}
+                {searchQuery && (
+                  <>
+                    <span className="text-stone-300">&bull;</span>
+                    <span>Search:</span>
+                    <span className="font-semibold text-stone-700">"{searchQuery}"</span>
+                  </>
+                )}
+              </div>
+
+              {datePreset === 'today' && !isFilterModified && (
+                <div className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold text-[#3B4D3A] bg-[#8FA88D]/15 px-2 py-0.5 rounded-full border border-[#8FA88D]/30">
+                  <Check className="w-2.5 h-2.5 text-[#3B4D3A]" /> Default View Active
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Invoices Table */}
-          <div className="bg-white border border-gray-200 rounded-lg shadow-2xs overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-lg shadow-2xs overflow-hidden relative z-1">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-gray-50/75 border-b border-gray-200 text-gray-500 font-semibold">
@@ -628,74 +1297,166 @@ export const BillingView: React.FC<BillingViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredInvoices.map(inv => (
-                    <tr key={inv.id} className="hover:bg-gray-50/80 transition">
-                      <td className="py-3 px-4">
-                        <span className="font-bold text-gray-900">{inv.invoiceNumber}</span>
-                        <span className="text-[10px] text-gray-400 block">{inv.date}</span>
-                      </td>
-
-                      <td className="py-3 px-4">
-                        <span className="font-bold text-blue-600">{inv.patientName}</span>
-                      </td>
-
-                      <td className="py-3 px-4 max-w-[200px]">
-                        <span className="font-medium text-gray-700 truncate block">
-                          {inv.description || inv.items?.[0]?.description || 'Dental Procedure'}
-                        </span>
-                        {inv.paymentMethod && (
-                          <span className="text-[10px] text-gray-400 uppercase">
-                            Via {inv.paymentMethod}
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="py-3 px-4 font-bold text-gray-900">
-                        ₹{(inv.totalAmount || inv.total || 0).toLocaleString()}
-                      </td>
-
-                      <td className="py-3 px-4 text-emerald-600 font-bold">
-                        ₹{inv.amountPaid.toLocaleString()}
-                      </td>
-
-                      <td className="py-3 px-4 font-bold text-amber-600">
-                        ₹{inv.balanceDue.toLocaleString()}
-                      </td>
-
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          inv.status === 'paid'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : inv.status === 'partial' || inv.status === 'partially_paid'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-rose-100 text-rose-800'
-                        }`}>
-                          {inv.status === 'partial' ? 'PARTIAL' : inv.status.replace('_', ' ').toUpperCase()}
-                        </span>
-                      </td>
-
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {inv.balanceDue > 0 && (
+                  {filteredInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-12 px-4 text-center">
+                        <div className="max-w-md mx-auto flex flex-col items-center">
+                          <div className="w-12 h-12 rounded-full bg-stone-100 flex items-center justify-center mb-3 text-stone-400">
+                            <Receipt className="w-6 h-6 text-stone-400" />
+                          </div>
+                          <h3 className="text-sm font-bold text-gray-800">No Invoices Found</h3>
+                          <p className="text-xs text-gray-500 mt-1 max-w-sm">
+                            {datePreset === 'today'
+                              ? "No invoices match today's date with the current filters. You can view all historical bills or reset to today."
+                              : datePreset === 'yesterday'
+                              ? "No invoices match yesterday's date with the current filters. You can view all historical bills or reset to today."
+                              : selectedDate
+                              ? `No invoices match the selected date (${formatDisplayDate(selectedDate)}) with the current filters. You can view all historical bills or reset to today.`
+                              : "No invoices match the selected date filter and payment status."}
+                          </p>
+                          <div className="mt-4 flex items-center gap-2">
+                            {datePreset !== 'all' && (
+                              <button
+                                type="button"
+                                onClick={clearAllDateFilter}
+                                className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-stone-100 hover:bg-stone-200 rounded-lg transition cursor-pointer"
+                              >
+                                View All Historical Bills
+                              </button>
+                            )}
                             <button
-                              onClick={() => handleOpenPatientPay(inv)}
-                              className="px-3 py-1 text-[11px] font-extrabold uppercase bg-emerald-600 text-white hover:bg-emerald-700 rounded shadow-2xs transition cursor-pointer"
+                              type="button"
+                              onClick={resetToToday}
+                              className="px-3 py-1.5 text-xs font-semibold text-white bg-[#252525] hover:bg-[#3D3B37] rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
                             >
-                              Receive
+                              <RotateCcw className="w-3.5 h-3.5 text-[#C8B58D]" />
+                              <span>Reset to Today's Bills</span>
                             </button>
-                          )}
-                          <button
-                            onClick={() => handleDownloadInvoicePdf(inv)}
-                            className="p-1.5 text-gray-500 hover:text-blue-700 hover:bg-gray-100 rounded transition cursor-pointer flex items-center gap-1 text-xs font-semibold"
-                            title="Download Tax Invoice PDF"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                            <span>PDF</span>
-                          </button>
+                          </div>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredInvoices.map(inv => (
+                      <tr
+                        key={inv.id}
+                        className={`transition ${
+                          highlightedInvoiceId === inv.id
+                            ? 'bg-[#EDE8DE]/40 ring-1 ring-[#C8B58D] font-medium'
+                            : 'hover:bg-gray-50/80'
+                        }`}
+                      >
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-gray-900">{inv.invoiceNumber}</span>
+                            {highlightedInvoiceId === inv.id && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase bg-[#8FA88D]/25 text-[#3B4D3A] border border-[#8FA88D]/30">
+                                SAVED
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-gray-400 block">{inv.date}</span>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPatientBill(inv)}
+                            className="font-bold text-blue-600 hover:text-blue-800 hover:underline text-left cursor-pointer inline-flex items-center gap-1.5 group"
+                            title={`Click to open detailed bill for ${inv.patientName}`}
+                          >
+                            <span>{inv.patientName}</span>
+                            <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity text-blue-500" />
+                          </button>
+                          {inv.patientCode && (
+                            <span className="text-[10px] text-gray-400 block font-mono">
+                              {inv.patientCode}
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4 max-w-[200px]">
+                          <span className="font-medium text-gray-700 truncate block">
+                            {inv.description || inv.items?.[0]?.description || 'Dental Procedure'}
+                          </span>
+                          {inv.paymentMethod && (
+                            <span className="text-[10px] text-gray-400 uppercase">
+                              Via {inv.paymentMethod}
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4 font-bold text-gray-900">
+                          <div>₹{(inv.totalAmount || inv.total || 0).toLocaleString()}</div>
+                          {inv.discount && inv.discount > 0 ? (
+                            <div className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
+                              <span className="line-through text-stone-400">₹{(inv.subtotal || ((inv.totalAmount || inv.total || 0) + inv.discount)).toLocaleString()}</span>
+                              <span>(-₹{inv.discount.toLocaleString()})</span>
+                            </div>
+                          ) : null}
+                        </td>
+
+                        <td className="py-3 px-4 text-emerald-600 font-bold">
+                          ₹{inv.amountPaid.toLocaleString()}
+                        </td>
+
+                        <td className="py-3 px-4 font-bold text-amber-600">
+                          ₹{inv.balanceDue.toLocaleString()}
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <div className="flex flex-col gap-1 items-start">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              inv.status === 'paid'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : inv.status === 'partial' || inv.status === 'partially_paid'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-rose-100 text-rose-800'
+                            }`}>
+                              {inv.status === 'partial' ? 'PARTIAL' : inv.status.replace('_', ' ').toUpperCase()}
+                            </span>
+                            {inv.sentToReceptionist && (
+                              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-[#8FA88D]/25 text-[#3B4D3A] border border-[#8FA88D]/30 inline-flex items-center gap-1">
+                                <Check className="w-2.5 h-2.5 text-[#3B4D3A]" /> Reception
+                              </span>
+                            )}
+                            {inv.isDraft && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-stone-100 text-stone-600 border border-stone-200">
+                                DRAFT
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+
+
+                            {/* Save as Draft (Downloads PDF format) */}
+                            <button
+                              type="button"
+                              onClick={() => handleSaveAsDraft(inv)}
+                              className="px-2.5 py-1 text-[11px] font-bold text-stone-700 hover:text-[#252525] bg-stone-100 hover:bg-[#EDE8DE] border border-stone-200 rounded-lg transition cursor-pointer flex items-center gap-1 shrink-0"
+                              title="Save as Draft & Download PDF"
+                            >
+                              <Download className="w-3 h-3 text-[#C8B58D]" />
+                              <span>Save as Draft</span>
+                            </button>
+
+                            {/* Doctor Delete Bill Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteInvoice(inv.id)}
+                              className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer shrink-0"
+                              title="Delete Bill"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1066,6 +1827,7 @@ export const BillingView: React.FC<BillingViewProps> = ({
           </div>
         </div>
       )}
+
     </div>
   );
 };

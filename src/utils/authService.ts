@@ -406,6 +406,59 @@ export const AuthService = {
   },
 
   /**
+   * Synchronizes Google OAuth user with Dentiflow Patient profile
+   */
+  syncGoogleUser: async (sessionUser: any): Promise<User> => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', sessionUser.id)
+        .maybeSingle();
+
+      if (profile) {
+        return mapProfileToUser(profile);
+      }
+
+      const meta = sessionUser.user_metadata || {};
+      const fullName = meta.full_name || meta.name || sessionUser.email?.split('@')[0] || 'User';
+      const initials = fullName
+        .trim()
+        .split(' ')
+        .map((n: string) => n[0])
+        .join('')
+        .substring(0, 2)
+        .toUpperCase() || 'PT';
+
+      const fallbackProfile = {
+        id: sessionUser.id,
+        oralix_id: meta.oralix_id || sessionUser.email || '',
+        name: fullName,
+        email: sessionUser.email || '',
+        role: (meta.role || 'patient') as UserRole,
+        avatar_text: initials,
+        avatar_url: meta.avatar_url || meta.picture,
+        phone: meta.phone,
+        patient_id: meta.patient_id || 'p-1',
+        status: 'active'
+      };
+
+      await supabase.from('profiles').upsert(fallbackProfile);
+      return mapProfileToUser(fallbackProfile);
+    } catch {
+      return {
+        id: sessionUser.id,
+        oralixId: sessionUser.email || 'USER',
+        name: sessionUser.user_metadata?.full_name || 'User',
+        email: sessionUser.email || '',
+        role: 'patient',
+        avatarText: 'PT',
+        patientId: 'p-1'
+      };
+    }
+  },
+
+  /**
    * Legacy verifyCredentials helper for synchronous fallback.
    */
   verifyCredentials: (

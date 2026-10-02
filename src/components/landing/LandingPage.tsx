@@ -11,12 +11,14 @@ import { CtaFooterSection } from './CtaFooterSection';
 interface LandingPageProps {
   onOpenBooking: () => void;
   onOpenPortal: () => void;
+  onOpenReceptionist?: () => void;
   onNavigateAuth: (mode: 'signin' | 'signup') => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   onOpenBooking,
   onOpenPortal,
+  onOpenReceptionist,
   onNavigateAuth
 }) => {
   return (
@@ -43,6 +45,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <LandingNavbar
           onOpenBooking={onOpenBooking}
           onOpenPortal={onOpenPortal}
+          onOpenReceptionist={onOpenReceptionist}
           onNavigateAuth={onNavigateAuth}
         />
 
