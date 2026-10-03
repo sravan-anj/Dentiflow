@@ -25,12 +25,7 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({
     let retryTimeout: ReturnType<typeof setTimeout> | null = null;
     let isProcessing = false;
 
-    const processSession = async (sessionUser: {
-      id: string;
-      email?: string;
-      user_metadata?: Record<string, unknown>;
-      [key: string]: unknown;
-    }) => {
+    const processSession = async (sessionUser: SupabaseUser) => {
       if (!isMounted || isProcessing) {
         return;
       }
