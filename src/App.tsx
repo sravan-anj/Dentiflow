@@ -49,6 +49,7 @@ import { GlobalSearchModal } from './components/common/GlobalSearchModal';
 import { EditProfileModal } from './components/profile/EditProfileModal';
 import { AccountAccessView } from './components/accountAccess/AccountAccessView';
 import { DoctorChangePasswordModal } from './components/auth/DoctorChangePasswordModal';
+import { BrandStudioView } from './components/marketing/BrandStudioView';
 import { ReceptionistPortal } from './components/receptionist/ReceptionistPortal';
 import { ShieldCheck } from 'lucide-react';
 
@@ -842,6 +843,10 @@ function MainApp() {
               patients={patients}
             />
           )}
+
+
+          {activeTab === 'brand-studio' && <BrandStudioView />}
+
 
           {activeTab === 'account-access' && (
             <AccountAccessView
