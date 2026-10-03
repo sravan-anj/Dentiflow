@@ -23,6 +23,7 @@ import { SignInPage } from './components/auth/SignInPage';
 import { SignUpPage } from './components/auth/SignUpPage';
 import { ForgotPasswordPage } from './components/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from './components/auth/ResetPasswordPage';
+import { AuthCallback } from './components/auth/AuthCallback';
 import { AuthService } from './utils/authService';
 import { Sidebar, ActiveTab } from './components/layout/Sidebar';
 import { Navbar } from './components/layout/Navbar';
@@ -110,11 +111,18 @@ function MainApp() {
   });
 
   // Public View Routing (Landing Page vs Dedicated Auth Pages)
-  type PublicViewType = 'landing' | 'signin' | 'signup' | 'forgot-password' | 'reset-password';
+  type PublicViewType = 'landing' | 'signin' | 'signup' | 'forgot-password' | 'reset-password' | 'callback';
 
   const getInitialPublicView = (): PublicViewType => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash || '';
+      if (
+        path.includes('auth/callback') ||
+        path.includes('callback') ||
+        hash.includes('access_token') ||
+        hash.includes('error=')
+      ) return 'callback';
       const hasResetToken = new URLSearchParams(window.location.search).has('token');
       if (path.includes('reset-password') || hasResetToken) return 'reset-password';
       if (path.includes('forgot-password') || path.includes('forgot')) return 'forgot-password';
@@ -507,11 +515,30 @@ function MainApp() {
     publicView === 'forgot-password'
   );
 
-  // If user not authenticated, or accessing dedicated public reset flows:
-  if (!currentUser || isResetPasswordRoute || isForgotPasswordRoute) {
+  const isCallbackRoute = typeof window !== 'undefined' && (
+    window.location.pathname.toLowerCase().includes('auth/callback') ||
+    window.location.pathname.toLowerCase().includes('callback') ||
+    window.location.hash.includes('access_token') ||
+    window.location.hash.includes('error=') ||
+    publicView === 'callback'
+  );
+
+  // If user not authenticated, or accessing dedicated public reset flows or auth callback:
+  if (!currentUser || isResetPasswordRoute || isForgotPasswordRoute || isCallbackRoute) {
     return (
       <div className="landing-ecosystem min-h-screen bg-slate-950 text-white">
-        {isResetPasswordRoute || publicView === 'reset-password' ? (
+        {isCallbackRoute || publicView === 'callback' ? (
+          <AuthCallback
+            onSuccess={user => {
+              setCurrentUser(user);
+              if (user.role === 'patient') {
+                setActiveTab('dashboard');
+              }
+              showToast(`Welcome back, ${user.name}!`, 'success');
+            }}
+            onNavigateSignIn={() => handleNavigateAuth('signin')}
+          />
+        ) : isResetPasswordRoute || publicView === 'reset-password' ? (
           <ResetPasswordPage
             onNavigateSignIn={() => {
               StorageService.clearCurrentUser();

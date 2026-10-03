@@ -3,6 +3,7 @@ import { ToothIcon } from '../common/ToothIcon';
 import { User, UserRole } from '../../types';
 import { SecurityService } from '../../utils/security';
 import { AuthService } from '../../utils/authService';
+import { GoogleSignInButton } from './GoogleSignInButton';
 import {
   Lock,
   Mail,
@@ -253,6 +254,20 @@ export const SignInPage: React.FC<SignInPageProps> = ({
               )}
             </button>
           </form>
+
+          {/* Social Auth Divider & Google Sign-In */}
+          <div className="relative my-4 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-stone-200/90" />
+            </div>
+            <div className="relative bg-white px-3 text-[10px] font-bold text-[#8C8880] uppercase tracking-widest">
+              or
+            </div>
+          </div>
+
+          <div className="flex justify-center pb-1">
+            <GoogleSignInButton onError={(msg) => setError(msg)} />
+          </div>
 
           {/* Switch to Sign Up */}
           <div className="mt-6 pt-4 border-t border-stone-200/80 text-center">

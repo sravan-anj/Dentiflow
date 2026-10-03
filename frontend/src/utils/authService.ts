@@ -9,6 +9,8 @@
  */
 
 import { User, UserRole } from '../types';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { supabase } from './supabaseClient';
 import { StorageService } from './storage';
 import { SecurityService } from './security';
 import { getApiEndpoint } from './apiConfig';
@@ -167,6 +169,11 @@ export const AuthService = {
         },
         credentials: 'include',
       });
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // Ignore Supabase signout error
+      }
     } catch {
       // Ignore network errors on logout
     } finally {
@@ -373,6 +380,148 @@ export const AuthService = {
         return adminTabs.includes(tab);
       default:
         return false;
+    }
+  },
+
+  /**
+   * Initiates Google OAuth authentication using Supabase Auth.
+   */
+  async signInWithGoogle(): Promise<{ error: Error | null }> {
+    try {
+      const redirectUrl =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/auth/callback`
+          : undefined;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+        },
+      });
+      if (error) {
+        return { error: new Error(error.message) };
+      }
+      return { error: null };
+    } catch (err: unknown) {
+      return {
+        error:
+          err instanceof Error
+            ? err
+            : new Error('Failed to initiate Google sign in.'),
+      };
+    }
+  },
+
+  /**
+   * Signs out the current user session from Supabase.
+   */
+  async signOut(): Promise<void> {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Error signing out of Supabase', err);
+    }
+  },
+
+  /**
+   * Synchronizes Google OAuth user with Oralix Patient profile
+   */
+  async syncGoogleUser(sessionUser: SupabaseUser): Promise<User> {
+    try {
+      // 1. Check if Supabase profile table has an existing profile
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', sessionUser.id)
+          .maybeSingle();
+
+        if (profile) {
+          const user: User = {
+            id: profile.id,
+            name: profile.name || sessionUser.user_metadata?.full_name || 'Patient',
+            email: profile.email || sessionUser.email || '',
+            role: (profile.role as UserRole) || 'patient',
+            avatarText: profile.avatar_text || 'PT',
+            phone: profile.phone || '',
+            patientId: profile.patient_id || `p-${profile.id}`,
+            status: 'active',
+          };
+          StorageService.saveCurrentUser(user);
+          StorageService.updateUser(user);
+          return user;
+        }
+      } catch {
+        // Fallback to metadata
+      }
+
+      // 2. Build patient User from Supabase session user & metadata
+      const meta = sessionUser.user_metadata || {};
+      const fullName =
+        meta.full_name ||
+        meta.name ||
+        sessionUser.email?.split('@')[0] ||
+        'Patient';
+      const initials =
+        fullName
+          .trim()
+          .split(' ')
+          .map((n: string) => n[0])
+          .join('')
+          .substring(0, 2)
+          .toUpperCase() || 'PT';
+
+      const patientUser: User = {
+        id: sessionUser.id,
+        name: fullName,
+        email: sessionUser.email || '',
+        role: 'patient',
+        avatarText: initials,
+        phone: meta.phone || '',
+        patientId: meta.patient_id || `p-${sessionUser.id.substring(0, 8)}`,
+        status: 'active',
+      };
+
+      // Upsert profile in Supabase database if available
+      try {
+        await supabase.from('profiles').upsert({
+          id: sessionUser.id,
+          name: fullName,
+          email: sessionUser.email || '',
+          role: 'patient',
+          avatar_text: initials,
+          patient_id: patientUser.patientId,
+          status: 'active',
+        });
+      } catch {
+        // Ignore if profiles table does not exist
+      }
+
+      // Update users and current user in Oralix storage
+      StorageService.saveCurrentUser(patientUser);
+      StorageService.updateUser(patientUser);
+
+      SecurityService.logEvent({
+        type: 'AUTH_LOGIN',
+        actor: patientUser.name,
+        targetRole: 'patient',
+        details: 'Google OAuth session established and synchronized with patient chart',
+        status: 'SUCCESS',
+      });
+
+      return patientUser;
+    } catch {
+      const fallbackUser: User = {
+        id: sessionUser.id,
+        name: sessionUser.user_metadata?.full_name || sessionUser.email?.split('@')[0] || 'Patient',
+        email: sessionUser.email || '',
+        role: 'patient',
+        avatarText: 'PT',
+        patientId: `p-${sessionUser.id.substring(0, 8)}`,
+        status: 'active',
+      };
+      StorageService.saveCurrentUser(fallbackUser);
+      return fallbackUser;
     }
   },
 };
