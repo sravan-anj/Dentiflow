@@ -114,10 +114,10 @@ export const CtaFooterSection: React.FC<CtaFooterSectionProps> = ({
         <div className="lg:col-span-4 flex flex-col justify-between space-y-6">
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-11 h-11 rounded-2xl bg-black text-white flex items-center justify-center border border-white/25 shadow-lg">
-                <ToothIcon size={24} />
+              <div className="w-11 h-11 rounded-2xl bg-black text-white flex items-center justify-center border border-white/25 shadow-lg overflow-hidden p-0.5">
+                <ToothIcon size={40} />
               </div>
-              <span className="text-2xl font-black tracking-tight text-white font-display">
+              <span className="oralix-brand-text text-2xl tracking-tight text-white font-display">
                 ORALIX
               </span>
             </div>

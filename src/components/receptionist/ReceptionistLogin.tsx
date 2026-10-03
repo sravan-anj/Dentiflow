@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ToothIcon } from '../common/ToothIcon';
 import { ShieldCheck, Lock, Mail, ArrowRight, Sparkles, Building, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 
 interface ReceptionistLoginProps {
@@ -65,8 +66,8 @@ export const ReceptionistLogin: React.FC<ReceptionistLoginProps> = ({
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         {/* Brand Icon Header */}
         <div className="flex justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-[#1A1A1A] text-white flex items-center justify-center shadow-lg ring-4 ring-[#FAF8F5]">
-            <Building className="w-8 h-8 text-[#C8B58D]" />
+          <div className="w-16 h-16 rounded-2xl bg-[#1A1A1A] text-white flex items-center justify-center shadow-lg ring-4 ring-[#FAF8F5] overflow-hidden p-1">
+            <ToothIcon size={56} />
           </div>
         </div>
 

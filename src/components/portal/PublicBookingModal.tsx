@@ -136,8 +136,8 @@ export const PublicBookingModal: React.FC<PublicBookingModalProps> = ({
         {/* Top Studio Header */}
         <div className="bg-[#F7F5F1] p-5 border-b border-stone-200/80 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <span className="w-10 h-10 rounded-2xl bg-[#EDE8DE] border border-[#C8B58D]/30 flex items-center justify-center text-[#252525] shadow-2xs">
-              <ToothIcon size={20} />
+            <span className="w-10 h-10 rounded-2xl bg-[#EDE8DE] border border-[#C8B58D]/30 flex items-center justify-center text-[#252525] shadow-2xs overflow-hidden p-0.5">
+              <ToothIcon size={36} />
             </span>
             <div>
               <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EDE8DE] text-[10px] font-extrabold uppercase tracking-wider text-[#252525] border border-[#C8B58D]/20 mb-0.5">
