@@ -17,6 +17,8 @@
  *    account owner's email, or falls back gracefully to local audit logging.
  */
 
+import { getApiEndpoint } from './apiConfig';
+
 export interface ReceiptItemPayload {
   description: string;
   quantity: number;
@@ -58,7 +60,7 @@ export const BillingEmailService = {
     }
 
     try {
-      const response = await fetch('/api/billing/send-receipt', {
+      const response = await fetch(getApiEndpoint('/api/billing/send-receipt'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

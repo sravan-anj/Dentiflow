@@ -426,7 +426,7 @@ function MainApp() {
     const creds = SecurityService.getCredentials();
     if (creds.autoLockMinutes <= 0) return;
 
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
 
     const resetTimer = () => {
       clearTimeout(timeoutId);
@@ -449,7 +449,7 @@ function MainApp() {
   // Patient, Receptionist & Doctor RBAC Safety Gate
   const handleNavigateTab = (tab: ActiveTab) => {
     if (currentUser?.role === 'patient') {
-      const allowedPatientTabs: ActiveTab[] = ['dashboard', 'appointments', 'chart', 'treatment-plans', 'billing', 'profile'];
+      const allowedPatientTabs: ActiveTab[] = ['dashboard', 'appointments', 'chart', 'treatment-plans', 'billing', 'feedback', 'profile'];
       if (!allowedPatientTabs.includes(tab)) {
         SecurityService.logEvent({
           type: 'UNAUTHORIZED_ACCESS_BLOCKED',
@@ -464,23 +464,23 @@ function MainApp() {
     }
 
     if (currentUser?.role === 'receptionist') {
-      const allowedReceptionistTabs: ActiveTab[] = ['billing', 'appointments', 'queue', 'patients', 'profile'];
+      const allowedReceptionistTabs: ActiveTab[] = ['dashboard', 'billing', 'appointments', 'queue', 'patients', 'profile'];
       if (!allowedReceptionistTabs.includes(tab)) {
-        showToast('Access Restricted: Front desk receptionists have clearance for Billing, Appointments, Queue, and Patients.', 'error');
+        showToast('Access Restricted: Front desk receptionists have clearance for Dashboard, Billing, Appointments, Queue, and Patients.', 'error');
         return;
       }
     }
 
     if (currentUser?.role === 'doctor') {
-      if (tab === 'account-access') {
+      if (tab === 'account-access' || tab === 'settings') {
         SecurityService.logEvent({
           type: 'UNAUTHORIZED_ACCESS_BLOCKED',
           actor: currentUser.name,
           targetRole: 'admin',
-          details: `Blocked doctor attempt to access Admin Account Access`,
+          details: `Blocked doctor attempt to access Admin ${tab}`,
           status: 'CRITICAL'
         });
-        showToast('Security Denial: Account Access is strictly restricted to Master Admin.', 'error');
+        showToast(`Security Denial: ${tab === 'settings' ? 'Practice Settings' : 'Account Access'} is strictly restricted to Master Admin.`, 'error');
         return;
       }
     }

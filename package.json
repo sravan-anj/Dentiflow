@@ -8,10 +8,17 @@
     "backend"
   ],
   "scripts": {
+    "dev": "npm --prefix frontend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
     "dev:backend": "npm --prefix backend run dev",
+    "build": "npm --prefix frontend run build",
     "build:frontend": "npm --prefix frontend run build",
+    "start": "npm --prefix backend run start",
+    "lint": "npm --prefix frontend run lint && npm --prefix backend run lint",
+    "test": "npm --prefix backend run test",
     "test:backend": "npm --prefix backend run test",
+    "test:auth": "npm --prefix backend run test:auth",
+    "test:matrix": "npm --prefix backend run test:matrix",
     "install:all": "npm --prefix frontend install && npm --prefix backend install"
   }
 }

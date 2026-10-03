@@ -8,7 +8,8 @@
     "dev": "tsx watch server.ts",
     "test:auth": "tsx test_auth.ts",
     "test:matrix": "tsx test_domain_matrix.ts",
-    "test": "tsx test_auth.ts && tsx test_domain_matrix.ts"
+    "test": "tsx test_auth.ts && tsx test_domain_matrix.ts",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

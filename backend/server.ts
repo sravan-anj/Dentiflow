@@ -18,6 +18,10 @@ import nodemailer, { Transporter } from 'nodemailer';
 import dotenv from 'dotenv';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 import patientsRouter from './src/server/routes/patientsRouter.ts';
 import appointmentsRouter from './src/server/routes/appointmentsRouter.ts';
@@ -312,12 +316,12 @@ const DEFAULT_USERS: ServerUser[] = [
 ];
 
 const DEFAULT_PASSWORDS: Record<string, string> = {
-  'u-doctor': 'doctor123',
-  'u-receptionist': 'receptionist123',
-  'u-patient': 'patient123',
-  'u-admin': 'admin123',
-  'u-srakshitha': 'patient123',
-  'u-rakshitha-semala': 'patient123',
+  'u-doctor': process.env.INITIAL_DOCTOR_PASSWORD || 'doctor123',
+  'u-receptionist': process.env.INITIAL_RECEPTIONIST_PASSWORD || 'receptionist123',
+  'u-patient': process.env.INITIAL_PATIENT_PASSWORD || 'patient123',
+  'u-admin': process.env.INITIAL_ADMIN_PASSWORD || 'admin123',
+  'u-srakshitha': process.env.INITIAL_PATIENT_PASSWORD || 'patient123',
+  'u-rakshitha-semala': process.env.INITIAL_PATIENT_PASSWORD || 'patient123',
 };
 
 export function loadUserStore(): ServerUser[] {
@@ -1554,7 +1558,14 @@ app.get('/api/health', (_req: Request, res: Response) => {
 });
 
 // ─── Production Static Asset & SPA Serving ────────────────────────────────────
-const distDir = path.resolve('dist');
+const candidateDistDirs = [
+  path.resolve('frontend/dist'),
+  path.resolve(__dirname, '../frontend/dist'),
+  path.resolve(__dirname, 'frontend/dist'),
+  path.resolve('dist'),
+  path.resolve(__dirname, 'dist'),
+];
+const distDir = candidateDistDirs.find(d => existsSync(d)) || path.resolve('frontend/dist');
 const isDirectRun =
   process.argv[1] &&
   (process.argv[1].endsWith('server.ts') || process.argv[1].endsWith('server.js'));

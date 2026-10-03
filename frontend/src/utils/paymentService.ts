@@ -39,7 +39,9 @@ class PaymentService {
    * Inspects environment configuration for Razorpay credentials.
    */
   public getGatewayConfigStatus(): GatewayConfigStatus {
-    const keyId = (import.meta as any).env?.VITE_RAZORPAY_KEY_ID || process.env.VITE_RAZORPAY_KEY_ID;
+    const keyId =
+      (import.meta as any).env?.VITE_RAZORPAY_KEY_ID ||
+      (globalThis as any).process?.env?.VITE_RAZORPAY_KEY_ID;
     const isConfigured = Boolean(keyId && keyId.trim().length > 0 && !keyId.includes('MY_KEY'));
 
     return {

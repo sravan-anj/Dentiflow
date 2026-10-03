@@ -74,6 +74,8 @@ export const AuthService = {
 
       if (data.token) {
         sessionStorage.setItem(AUTH_STORAGE_KEYS.SESSION_TOKEN, data.token);
+        localStorage.setItem(AUTH_STORAGE_KEYS.SESSION_TOKEN, data.token);
+        localStorage.setItem('oralix_bearer_token', data.token);
       }
 
       SecurityService.clearFailedAttempts();
@@ -129,6 +131,8 @@ export const AuthService = {
       const newUser: User = data.user;
       if (data.token) {
         sessionStorage.setItem(AUTH_STORAGE_KEYS.SESSION_TOKEN, data.token);
+        localStorage.setItem(AUTH_STORAGE_KEYS.SESSION_TOKEN, data.token);
+        localStorage.setItem('oralix_bearer_token', data.token);
       }
 
       // Update users and ensure patient profile is provisioned
@@ -168,6 +172,9 @@ export const AuthService = {
     } finally {
       sessionStorage.removeItem(AUTH_STORAGE_KEYS.SESSION_TOKEN);
       sessionStorage.removeItem(AUTH_STORAGE_KEYS.LEGACY_TOKEN);
+      localStorage.removeItem(AUTH_STORAGE_KEYS.SESSION_TOKEN);
+      localStorage.removeItem(AUTH_STORAGE_KEYS.LEGACY_TOKEN);
+      localStorage.removeItem('oralix_bearer_token');
       StorageService.clearCurrentUser();
       if (currentUser) {
         SecurityService.logEvent({
@@ -331,7 +338,8 @@ export const AuthService = {
   isAuthorizedForTab(user: User | null, tab: string): boolean {
     if (!user) return false;
 
-    const patientTabs = ['dashboard', 'appointments', 'chart', 'treatment-plans', 'billing', 'profile'];
+    const patientTabs = ['dashboard', 'appointments', 'chart', 'treatment-plans', 'billing', 'feedback', 'profile'];
+    const receptionistTabs = ['dashboard', 'billing', 'appointments', 'queue', 'patients', 'profile'];
     const doctorTabs = [
       'dashboard',
       'appointments',
@@ -344,13 +352,21 @@ export const AuthService = {
       'inventory',
       'staff',
       'reports',
+      'feedback',
+      'growth',
       'profile',
     ];
-    const adminTabs = [...doctorTabs, 'account-access'];
+    const adminTabs = [
+      ...doctorTabs,
+      'settings',
+      'account-access',
+    ];
 
     switch (user.role) {
       case 'patient':
         return patientTabs.includes(tab);
+      case 'receptionist':
+        return receptionistTabs.includes(tab);
       case 'doctor':
         return doctorTabs.includes(tab);
       case 'admin':

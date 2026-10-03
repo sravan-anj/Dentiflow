@@ -262,37 +262,41 @@ async function runTests() {
     // ------------------------------------------------------------
     console.log('\n--- Phase 4: Appointment Scheduling & Conflict Enforcement ---');
 
-    const dayOffset = Math.floor(Math.random() * 200) + 15;
-    const appointmentDate = new Date(Date.now() + dayOffset * 86400000).toISOString().split('T')[0];
+    const testDoctorId = `doc-matrix-${Date.now()}`;
+    const testChair = `chair-matrix-${Date.now()}`;
+    const appointmentDate = new Date(Date.now() + 100 * 86400000).toISOString().split('T')[0];
     const apt1Res = await request('POST', '/api/appointments', {
       patientId: testPatient.id,
-      doctorName: 'Dr. Ananya Sharma',
+      doctorId: testDoctorId,
+      doctorName: 'Dr. Matrix Clinician',
       date: appointmentDate,
       startTime: '10:00',
       endTime: '10:45',
       procedure: 'Endodontic Obturation',
-      chair: 'chair-1',
+      chair: testChair,
     }, receptionistAuth.token);
 
     const apt1Data = apt1Res.body;
-    assert(apt1Res.status === 201, '19. Appointment created successfully');
+    assert(apt1Res.status === 201, '19. Appointment created successfully', JSON.stringify(apt1Data));
 
     // 20. Overlapping appointment on same doctor & chair rejected (Double Booking)
     const conflictRes = await request('POST', '/api/appointments', {
       patientId: testPatient.id,
-      doctorName: 'Dr. Ananya Sharma',
+      doctorId: testDoctorId,
+      doctorName: 'Dr. Matrix Clinician',
       date: appointmentDate,
       startTime: '10:15',
       endTime: '11:00',
       procedure: 'Consultation',
-      chair: 'chair-1',
+      chair: testChair,
     }, receptionistAuth.token);
     assert(conflictRes.status === 409, '20. Double-booking conflict rejected with 409 Conflict');
 
     // 21. End time before start time rejected
     const invalidTimeRes = await request('POST', '/api/appointments', {
       patientId: testPatient.id,
-      doctorName: 'Dr. Ananya Sharma',
+      doctorId: testDoctorId,
+      doctorName: 'Dr. Matrix Clinician',
       date: appointmentDate,
       startTime: '14:00',
       endTime: '13:30',
@@ -301,10 +305,18 @@ async function runTests() {
     assert(invalidTimeRes.status === 400, '21. Invalid appointment time (endTime before startTime) rejected (400)');
 
     // 22. Status transition: SCHEDULED -> CONFIRMED
-    const patchStatusRes = await request('PATCH', `/api/appointments/${apt1Data.appointment.id}/status`, {
-      status: 'CONFIRMED',
-    }, doctorAuth.token);
-    assert(patchStatusRes.status === 200, '22. Appointment status transition to CONFIRMED accepted');
+    const aptId = apt1Data?.appointment?.id;
+    if (aptId) {
+      const patchStatusRes = await request('PATCH', `/api/appointments/${aptId}/status`, {
+        status: 'CONFIRMED',
+      }, doctorAuth.token);
+      assert(patchStatusRes.status === 200, '22. Appointment status transition to CONFIRMED accepted');
+
+      // Cleanup test appointment so no state leaks
+      await request('DELETE', `/api/appointments/${aptId}`, undefined, doctorAuth.token);
+    } else {
+      assert(false, '22. Appointment status transition to CONFIRMED accepted', 'No appointment ID returned');
+    }
 
     // ------------------------------------------------------------
     // PHASE 5: FILES & DOCUMENTS SECURITY
