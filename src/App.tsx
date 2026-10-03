@@ -822,7 +822,9 @@ function MainApp() {
             />
           )}
 
+
           {activeTab === 'brand-studio' && <BrandStudioView />}
+
 
           {activeTab === 'account-access' && (
             <AccountAccessView
