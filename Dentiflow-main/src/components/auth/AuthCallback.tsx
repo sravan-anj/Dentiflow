@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ToothIcon } from '../common/ToothIcon';
 import type { User } from '../../types';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { AuthService } from '../../utils/authService';
 import { supabase } from '../../utils/supabaseClient';
 import { AlertCircle, ArrowLeft } from 'lucide-react';
