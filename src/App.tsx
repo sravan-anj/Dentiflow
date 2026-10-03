@@ -43,13 +43,14 @@ import { PublicQueuePortal } from './components/portal/PublicQueuePortal';
 import { AppBackground } from './components/background/AppBackground';
 import { BackgroundManagerModal } from './components/background/BackgroundManagerModal';
 import { SecurityModal } from './components/security/SecurityModal';
-import { LockScreen } from './components/security/LockScreen';
 import { SecurityAuditModal } from './components/security/SecurityAuditModal';
 import { ProfileView } from './components/profile/ProfileView';
 import { GlobalSearchModal } from './components/common/GlobalSearchModal';
 import { EditProfileModal } from './components/profile/EditProfileModal';
 import { AccountAccessView } from './components/accountAccess/AccountAccessView';
 import { DoctorChangePasswordModal } from './components/auth/DoctorChangePasswordModal';
+import { BrandStudioView } from './components/marketing/BrandStudioView';
+import { ReceptionistPortal } from './components/receptionist/ReceptionistPortal';
 import { ShieldCheck } from 'lucide-react';
 
 function MainApp() {
@@ -59,9 +60,44 @@ function MainApp() {
   const [currentUser, setCurrentUser] = useState<User | null>(() => StorageService.getCurrentUser());
   const [adminOriginalUser, setAdminOriginalUser] = useState<User | null>(null);
 
-  // Doctor forced password change reminder state
+  // Dedicated Receptionist Route (/receptionist)
+  const [isReceptionistRoute, setIsReceptionistRoute] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      return path === '/receptionist' || path.startsWith('/receptionist');
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window !== 'undefined') {
+        const path = window.location.pathname.toLowerCase();
+        setIsReceptionistRoute(path === '/receptionist' || path.startsWith('/receptionist'));
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleNavigateToReceptionist = useCallback(() => {
+    try {
+      window.history.pushState(null, '', '/receptionist');
+    } catch (_) {}
+    setIsReceptionistRoute(true);
+  }, []);
+
+  const handleNavigateFromReceptionist = useCallback(() => {
+    try {
+      window.history.pushState(null, '', '/');
+    } catch (_) {}
+    setIsReceptionistRoute(false);
+  }, []);
+
+  // Doctor forced password change reminder state (Temporarily disabled for development)
   const [isDoctorPasswordModalOpen, setIsDoctorPasswordModalOpen] = useState(false);
 
+  /*
   useEffect(() => {
     if (currentUser?.role === 'doctor' && currentUser.mustChangePassword) {
       setIsDoctorPasswordModalOpen(true);
@@ -69,6 +105,7 @@ function MainApp() {
       setIsDoctorPasswordModalOpen(false);
     }
   }, [currentUser?.id, currentUser?.mustChangePassword]);
+  */
 
   // Startup Session Persistence & Supabase Cloud Sync
   useEffect(() => {
@@ -317,7 +354,6 @@ function MainApp() {
   const [isBackgroundModalOpen, setIsBackgroundModalOpen] = useState(false);
 
   // Security States
-  const [isTerminalLocked, setIsTerminalLocked] = useState<boolean>(() => SecurityService.isTerminalLocked());
   const [isSecurityAuditOpen, setIsSecurityAuditOpen] = useState(false);
   const [securityModalTarget, setSecurityModalTarget] = useState<'doctor' | 'admin' | null>(null);
 
@@ -341,6 +377,13 @@ function MainApp() {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isQueuePortalOpen, setIsQueuePortalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [billingTargetPatientId, setBillingTargetPatientId] = useState<string | null>(null);
+  const [billingTargetAppointmentId, setBillingTargetAppointmentId] = useState<string | null>(null);
+
+  const handleClearBillingTarget = useCallback(() => {
+    setBillingTargetPatientId(null);
+    setBillingTargetAppointmentId(null);
+  }, []);
 
   // Update current user details and sync with persistent storage
   const handleUpdateCurrentUser = (updated: User) => {
@@ -516,46 +559,6 @@ function MainApp() {
     setSecurityModalTarget(newRole);
   };
 
-  // Workstation Lock Handling
-  const handleLockTerminal = () => {
-    if (!currentUser) return;
-    SecurityService.setTerminalLocked(true, currentUser.name);
-    setIsTerminalLocked(true);
-    showToast('Workstation locked to prevent unauthorized tampering', 'info');
-  };
-
-  const handleUnlockTerminal = () => {
-    setIsTerminalLocked(false);
-    showToast('Workstation unlocked. Welcome back.', 'success');
-  };
-
-  // Inactivity Auto-Lock Listener
-  useEffect(() => {
-    if (!currentUser || isTerminalLocked) return;
-
-    const creds = SecurityService.getCredentials();
-    if (creds.autoLockMinutes <= 0) return;
-
-    let timeoutId: NodeJS.Timeout;
-
-    const resetTimer = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        SecurityService.setTerminalLocked(true, `${currentUser.name} (Idle Auto-Lock)`);
-        setIsTerminalLocked(true);
-      }, creds.autoLockMinutes * 60 * 1000);
-    };
-
-    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
-    events.forEach(e => window.addEventListener(e, resetTimer));
-    resetTimer();
-
-    return () => {
-      clearTimeout(timeoutId);
-      events.forEach(e => window.removeEventListener(e, resetTimer));
-    };
-  }, [currentUser, isTerminalLocked]);
-
   // Patient & Doctor RBAC Safety Gate
   const handleNavigateTab = (tab: ActiveTab) => {
     if (currentUser?.role === 'patient') {
@@ -587,7 +590,18 @@ function MainApp() {
       }
     }
 
+    if (tab !== 'billing') {
+      setBillingTargetPatientId(null);
+      setBillingTargetAppointmentId(null);
+    }
     setActiveTab(tab);
+  };
+
+  const handleNavigateToPatientBill = (patientId: string, appointmentId?: string) => {
+    setSelectedPatientId(patientId);
+    setBillingTargetPatientId(patientId);
+    setBillingTargetAppointmentId(appointmentId || null);
+    handleNavigateTab('billing');
   };
 
   const handleLogout = () => {
@@ -604,6 +618,19 @@ function MainApp() {
     handleNavigateAuth('landing');
     showToast('Signed out of Oralix', 'info');
   };
+
+  // Dedicated Receptionist Route (/receptionist) with Mock Auth
+  if (isReceptionistRoute) {
+    return (
+      <ReceptionistPortal
+        invoices={invoices}
+        patients={patients}
+        onSaveInvoices={handleSaveInvoices}
+        onSavePatients={handleSavePatients}
+        onNavigateHome={handleNavigateFromReceptionist}
+      />
+    );
+  }
 
   // If user not authenticated, render Level 10 Public Ecosystem (Landing, Sign-in, or Sign-up)
   if (!currentUser) {
@@ -626,6 +653,7 @@ function MainApp() {
           <LandingPage
             onOpenBooking={handleOpenBookingRequest}
             onOpenPortal={() => setIsQueuePortalOpen(true)}
+            onOpenReceptionist={handleNavigateToReceptionist}
             onNavigateAuth={handleNavigateAuth}
           />
         )}
@@ -637,17 +665,6 @@ function MainApp() {
           />
         )}
       </div>
-    );
-  }
-
-  // If terminal is locked, render LockScreen
-  if (isTerminalLocked) {
-    return (
-      <LockScreen
-        currentUser={currentUser}
-        onUnlock={handleUnlockTerminal}
-        backgroundUrl={backgroundConfig.activeUrl}
-      />
     );
   }
 
@@ -666,7 +683,6 @@ function MainApp() {
         setIsOpen={setSidebarOpen}
         onOpenBackgroundManager={() => setIsBackgroundModalOpen(true)}
         onOpenSecurityAudit={() => setIsSecurityAuditOpen(true)}
-        onLockTerminal={handleLockTerminal}
       />
 
       {/* Main Content Area */}
@@ -681,9 +697,9 @@ function MainApp() {
           onOpenSearch={() => setIsSearchModalOpen(true)}
           onOpenBooking={handleOpenBookingRequest}
           onOpenPortal={() => setIsQueuePortalOpen(true)}
+          onOpenReceptionist={handleNavigateToReceptionist}
           onOpenBackgroundManager={() => setIsBackgroundModalOpen(true)}
           onOpenSecurityAudit={() => setIsSecurityAuditOpen(true)}
-          onLockTerminal={handleLockTerminal}
           onNavigateToProfile={() => handleNavigateTab('profile')}
           onOpenEditProfile={() => setIsEditProfileOpen(true)}
           onLogout={handleLogout}
@@ -741,6 +757,7 @@ function MainApp() {
               onSaveAppointments={handleSaveAppointments}
               onSelectPatient={id => setSelectedPatientId(id)}
               onNavigateToChart={() => handleNavigateTab('chart')}
+              onNavigateToBilling={handleNavigateToPatientBill}
               isBookingModalOpen={isBookingModalOpen}
               setIsBookingModalOpen={setIsBookingModalOpen}
             />
@@ -793,7 +810,13 @@ function MainApp() {
               currentUser={currentUser}
               invoices={invoices}
               patients={patients}
+              appointments={appointments}
+              treatmentPlans={treatmentPlans}
+              targetPatientId={billingTargetPatientId}
+              targetAppointmentId={billingTargetAppointmentId}
+              onClearTargetPatient={handleClearBillingTarget}
               onSaveInvoices={handleSaveInvoices}
+              onSavePatients={handleSavePatients}
               onSelectPatient={id => setSelectedPatientId(id)}
               onNavigateToChart={() => handleNavigateTab('chart')}
             />
@@ -821,6 +844,10 @@ function MainApp() {
             />
           )}
 
+
+          {activeTab === 'brand-studio' && <BrandStudioView />}
+
+
           {activeTab === 'account-access' && (
             <AccountAccessView
               currentUser={currentUser}
@@ -836,7 +863,6 @@ function MainApp() {
               appointments={appointments}
               treatmentPlans={treatmentPlans}
               onUpdateUser={handleUpdateCurrentUser}
-              onLockTerminal={handleLockTerminal}
               onOpenSecurityAudit={() => setIsSecurityAuditOpen(true)}
             />
           )}
@@ -915,7 +941,8 @@ function MainApp() {
         onNavigate={handleNavigateTab}
       />
 
-      {/* Doctor Initial Password Change Reminder Modal */}
+      {/* Doctor Initial Password Change Reminder Modal (Temporarily commented out for development) */}
+      {/*
       {currentUser?.role === 'doctor' && (
         <DoctorChangePasswordModal
           isOpen={isDoctorPasswordModalOpen}
@@ -927,6 +954,7 @@ function MainApp() {
           }}
         />
       )}
+      */}
     </div>
   );
 }

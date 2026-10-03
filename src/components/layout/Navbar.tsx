@@ -5,12 +5,12 @@ import {
   Menu,
   Globe,
   CalendarPlus,
-  Lock,
   ShieldCheck,
   User as UserIcon,
   Edit3,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  Building
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -22,9 +22,9 @@ interface NavbarProps {
   onOpenSearch: () => void;
   onOpenBooking: () => void;
   onOpenPortal: () => void;
+  onOpenReceptionist?: () => void;
   onOpenBackgroundManager: () => void;
   onOpenSecurityAudit: () => void;
-  onLockTerminal: () => void;
   onNavigateToProfile: () => void;
   onOpenEditProfile: () => void;
   onLogout: () => void;
@@ -39,8 +39,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenSearch,
   onOpenBooking,
   onOpenPortal,
+  onOpenReceptionist,
   onOpenSecurityAudit,
-  onLockTerminal,
   onNavigateToProfile,
   onOpenEditProfile,
   onLogout
@@ -116,15 +116,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           <span className="hidden lg:inline">Security Center</span>
         </button>
 
-        {/* Quick Lock Terminal button */}
-        <button
-          onClick={onLockTerminal}
-          title="Quick Lock Workstation (Prevent Unauthorized Walk-up Tampering)"
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-[#594723] bg-[#C5A66A]/15 hover:bg-[#C5A66A]/25 border border-[#C5A66A]/30 rounded-xl transition cursor-pointer shadow-2xs"
-        >
-          <Lock className="w-3.5 h-3.5 text-[#C5A66A]" />
-          <span className="hidden sm:inline">Lock Station</span>
-        </button>
 
         {/* Quick Public Access Links */}
         <div className="hidden xl:flex items-center gap-1.5 pl-1">
@@ -145,6 +136,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Globe className="w-3.5 h-3.5 text-[#C8B58D]" />
             <span>Queue Board</span>
           </button>
+          {onOpenReceptionist && (
+            <button
+              onClick={onOpenReceptionist}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-[#252525] bg-white/80 hover:bg-white border border-stone-200/80 rounded-xl transition cursor-pointer backdrop-blur-md shadow-2xs"
+              title="Open Receptionist Desk (/receptionist)"
+            >
+              <Building className="w-3.5 h-3.5 text-[#C8B58D]" />
+              <span>Reception Desk</span>
+            </button>
+          )}
         </div>
 
         {/* Interactive Profile & Avatar Control */}
@@ -260,23 +261,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </div>
                   <span className="text-[10px] text-[#3B4D3A] font-bold bg-[#8FA88D]/20 px-1.5 py-0.5 rounded border border-[#8FA88D]/30">
                     Verified
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsProfileMenuOpen(false);
-                    onLockTerminal();
-                  }}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl hover:bg-[#C5A66A]/10 text-[#594723] font-semibold transition cursor-pointer group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Lock className="w-4 h-4 text-[#C5A66A] group-hover:scale-110 transition-transform" />
-                    <span>Lock Workstation</span>
-                  </div>
-                  <span className="text-[10px] text-[#594723] bg-[#C5A66A]/20 px-1.5 py-0.5 rounded border border-[#C5A66A]/30">
-                    PIN
                   </span>
                 </button>
               </div>

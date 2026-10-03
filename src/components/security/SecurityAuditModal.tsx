@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SecurityService } from '../../utils/security';
 import { SecurityAuditLog, SecurityCredentials } from '../../types/security';
-import { ShieldCheck, ShieldAlert, KeyRound, Lock, History, Settings, X, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, KeyRound, History, Settings, X, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 interface SecurityAuditModalProps {
   isOpen: boolean;
@@ -20,7 +20,6 @@ export const SecurityAuditModal: React.FC<SecurityAuditModalProps> = ({
   const [creds, setCreds] = useState<SecurityCredentials>(() => SecurityService.getCredentials());
   const [adminPinInput, setAdminPinInput] = useState('');
   const [doctorPinInput, setDoctorPinInput] = useState('');
-  const [autoLockInput, setAutoLockInput] = useState(15);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
@@ -30,7 +29,6 @@ export const SecurityAuditModal: React.FC<SecurityAuditModalProps> = ({
       setCreds(currentCreds);
       setAdminPinInput(currentCreds.adminPin);
       setDoctorPinInput(currentCreds.doctorPin);
-      setAutoLockInput(currentCreds.autoLockMinutes);
       setSaveSuccess(false);
     }
   }, [isOpen]);
@@ -42,8 +40,7 @@ export const SecurityAuditModal: React.FC<SecurityAuditModalProps> = ({
     const updated: SecurityCredentials = {
       ...creds,
       adminPin: adminPinInput.trim() || '9042',
-      doctorPin: doctorPinInput.trim() || '4482',
-      autoLockMinutes: autoLockInput
+      doctorPin: doctorPinInput.trim() || '4482'
     };
     SecurityService.saveCredentials(updated);
     setCreds(updated);
@@ -282,39 +279,6 @@ export const SecurityAuditModal: React.FC<SecurityAuditModalProps> = ({
                     </p>
                   </div>
                 </div>
-              </div>
-
-              {/* Auto Lock settings */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-sky-600" />
-                  <span>Inactivity Operatory Auto-Lock</span>
-                </h4>
-
-                <div className="grid grid-cols-4 gap-2">
-                  {[
-                    { val: 5, label: '5 Minutes' },
-                    { val: 15, label: '15 Minutes (Default)' },
-                    { val: 30, label: '30 Minutes' },
-                    { val: 0, label: 'Disabled' }
-                  ].map(opt => (
-                    <button
-                      key={opt.val}
-                      type="button"
-                      onClick={() => setAutoLockInput(opt.val)}
-                      className={`p-2.5 rounded-lg border text-xs font-semibold cursor-pointer transition ${
-                        autoLockInput === opt.val
-                          ? 'border-sky-600 bg-sky-600 text-white shadow-2xs'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  Workstation automatically locks if clinician steps away to treat a patient, preventing unauthorized walk-up tampering.
-                </p>
               </div>
 
               <div className="flex justify-end">
