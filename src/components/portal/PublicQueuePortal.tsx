@@ -48,8 +48,8 @@ export const PublicQueuePortal: React.FC<PublicQueuePortalProps> = ({ queue, onC
       {/* Top Banner Header */}
       <header className="p-4 sm:p-6 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg">
-            <ToothIcon size={24} />
+          <span className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg overflow-hidden p-0.5">
+            <ToothIcon size={36} />
           </span>
           <div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight">

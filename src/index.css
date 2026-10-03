@@ -28,6 +28,13 @@
     --color-warning: #C5A66A;
     --color-danger: #B97870;
   }
+
+  /* Oralix Official Text Branding Style (Reference-inspired from Oralix logo1.1) */
+  .oralix-brand-text {
+    font-family: var(--font-display);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
   
   html, body, #root {
     width: 100%;

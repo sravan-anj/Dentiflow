@@ -217,11 +217,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       <header className="w-full sticky top-0 z-30 bg-white/30 backdrop-blur-xl border-b border-white/40 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="w-9 h-9 rounded-xl bg-white/60 backdrop-blur-md text-sky-700 flex items-center justify-center shadow-xs border border-white/60">
-              <ToothIcon size={20} />
+            <span className="w-9 h-9 rounded-xl bg-white/60 backdrop-blur-md text-sky-700 flex items-center justify-center shadow-xs border border-white/60 overflow-hidden p-0.5">
+              <ToothIcon size={32} />
             </span>
             <div>
-              <span className="text-slate-950 font-black text-lg tracking-tight">Oralix</span>
+              <span className="oralix-brand-text text-slate-950 text-lg tracking-tight">Oralix</span>
               <span className="hidden sm:inline-block ml-2 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-900 border border-sky-400/30">
                 Clinic &amp; Portals
               </span>
@@ -277,10 +277,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           {/* Left Art / Info Section */}
           <section className="md:col-span-6 flex flex-col justify-center py-4 text-slate-900">
             <div className="flex items-center gap-2.5 font-bold text-xl mb-4">
-              <span className="w-10 h-10 rounded-xl bg-white/40 backdrop-blur-md text-sky-700 flex items-center justify-center shadow-sm border border-white/60">
-                <ToothIcon size={22} />
+              <span className="w-10 h-10 rounded-xl bg-white/40 backdrop-blur-md text-sky-700 flex items-center justify-center shadow-sm border border-white/60 overflow-hidden p-0.5">
+                <ToothIcon size={36} />
               </span>
-              <span className="text-slate-900 tracking-tight font-extrabold text-2xl drop-shadow-xs">Oralix Clinic</span>
+              <span className="oralix-brand-text text-slate-900 tracking-tight text-2xl drop-shadow-xs">Oralix Clinic</span>
             </div>
 
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/40 backdrop-blur-md border border-white/60 text-sky-950 text-xs font-black w-fit mb-3 shadow-2xs">
@@ -1017,8 +1017,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       <footer className="w-full bg-white/20 backdrop-blur-xl border-t border-white/40 py-10 px-4 sm:px-6 relative z-10 mt-8">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-slate-800 font-medium">
           <div className="flex items-center gap-3">
-            <span className="w-8 h-8 rounded-lg bg-white/40 text-sky-700 flex items-center justify-center border border-white/60 shadow-2xs">
-              <ToothIcon size={18} />
+            <span className="w-8 h-8 rounded-lg bg-white/40 text-sky-700 flex items-center justify-center border border-white/60 shadow-2xs overflow-hidden p-0.5">
+              <ToothIcon size={28} />
             </span>
             <div>
               <p className="font-black text-slate-950 text-sm">Oralix Multispecialty Clinic</p>

@@ -139,10 +139,10 @@ export const SignInPage: React.FC<SignInPageProps> = ({
         </button>
 
         <div className="flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/80 border border-stone-200/80 backdrop-blur-md shadow-xs">
-          <div className="w-7 h-7 rounded-lg bg-[#EDE8DE] border border-[#C8B58D]/30 text-[#252525] flex items-center justify-center font-black">
-            <ToothIcon size={16} />
+          <div className="w-7 h-7 rounded-lg bg-[#EDE8DE] border border-[#C8B58D]/30 text-[#252525] flex items-center justify-center font-black overflow-hidden p-0.5">
+            <ToothIcon size={24} />
           </div>
-          <span className="text-sm font-black font-display tracking-tight text-[#252525]">
+          <span className="oralix-brand-text text-sm font-display tracking-tight text-[#252525]">
             ORALIX
           </span>
         </div>

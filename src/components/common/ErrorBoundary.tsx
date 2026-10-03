@@ -44,8 +44,8 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="min-h-screen bg-[#F5F3EF] text-[#252525] flex flex-col items-center justify-center p-6 font-sans">
           <div className="max-w-md w-full bg-white/90 border border-red-200 rounded-3xl p-8 shadow-xl backdrop-blur-md text-center space-y-5">
-            <div className="w-14 h-14 rounded-2xl bg-red-50 border border-red-200 text-red-600 flex items-center justify-center mx-auto shadow-sm">
-              <ToothIcon size={24} />
+            <div className="w-14 h-14 rounded-2xl bg-red-50 border border-red-200 text-red-600 flex items-center justify-center mx-auto shadow-sm overflow-hidden p-1">
+              <ToothIcon size={48} />
             </div>
 
             <div className="space-y-2">

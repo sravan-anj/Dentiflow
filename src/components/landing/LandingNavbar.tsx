@@ -72,12 +72,12 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({
             onClick={(e) => handleLinkClick(e, '#hero')}
             className="flex items-center gap-3 group cursor-pointer"
           >
-            <div className="w-10 h-10 rounded-xl bg-black text-white flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.3)] border border-white/20 group-hover:scale-105 transition-transform duration-200">
-              <ToothIcon size={22} />
+            <div className="w-10 h-10 rounded-xl bg-black text-white flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.3)] border border-white/20 group-hover:scale-105 transition-transform duration-200 overflow-hidden p-0.5">
+              <ToothIcon size={36} />
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
-                <span className="text-black font-black tracking-tight text-xl leading-none font-display drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)]" style={{ color: '#000000' }}>
+                <span className="oralix-brand-text text-black text-xl leading-none font-display drop-shadow-[0_1px_2px_rgba(255,255,255,0.8)]" style={{ color: '#000000' }}>
                   ORALIX
                 </span>
                 <span className="w-1.5 h-1.5 rounded-full bg-black" />
