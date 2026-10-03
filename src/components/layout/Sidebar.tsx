@@ -16,8 +16,10 @@ import {
   Stethoscope,
   ShieldCheck,
   Lock,
-  Palette
+  Palette,
+  Image as ImageIcon
 } from 'lucide-react';
+
 
 export type ActiveTab =
   | 'dashboard'
@@ -44,7 +46,6 @@ interface SidebarProps {
   setIsOpen: (open: boolean) => void;
   onOpenBackgroundManager: () => void;
   onOpenSecurityAudit: () => void;
-  onLockTerminal: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -55,8 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   setIsOpen,
   onOpenBackgroundManager,
-  onOpenSecurityAudit,
-  onLockTerminal
+  onOpenSecurityAudit
 }) => {
   const role: UserRole = currentUser.role;
 
@@ -80,7 +80,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'chart', label: 'Dental Odontogram', icon: Stethoscope },
         { id: 'treatment-plans', label: 'Treatment Plans', icon: Layers },
         { id: 'clinical', label: 'SOAP Notes & Rx', icon: FileText },
-        { id: 'brand-studio', label: 'Brand Studio', icon: Palette }
+
+
+        { id: 'billing', label: 'Billing', icon: CreditCard }
+
       ];
     }
 
@@ -213,23 +216,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </button>
 
-          <div className="grid grid-cols-2 gap-1.5 pt-1">
-            <button
-              onClick={onLockTerminal}
-              title="Lock Terminal"
-              className="flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-[#C5A66A] bg-[#C5A66A]/10 hover:bg-[#C5A66A]/20 rounded-lg transition cursor-pointer font-bold border border-[#C5A66A]/30"
-            >
-              <Lock className="w-3 h-3 text-[#C5A66A]" />
-              <span>Lock</span>
-            </button>
-
+          <div className="pt-1">
             <button
               onClick={onLogout}
               title="Sign Out"
-              className="flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs text-[#B97870] bg-[#B97870]/10 hover:bg-[#B97870]/20 rounded-lg transition cursor-pointer font-bold border border-[#B97870]/30"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs text-[#B97870] bg-[#B97870]/10 hover:bg-[#B97870]/20 rounded-xl transition cursor-pointer font-bold border border-[#B97870]/30"
             >
-              <LogOut className="w-3 h-3 text-[#B97870]" />
-              <span>Exit</span>
+              <LogOut className="w-3.5 h-3.5 text-[#B97870]" />
+              <span>Sign Out</span>
             </button>
           </div>
         </div>

@@ -12,7 +12,8 @@ import {
   StaffMember,
   User,
   FinancingRequest,
-  PaymentTransaction
+  PaymentTransaction,
+  TreatmentCatalogueItem
 } from '../types';
 import {
   INITIAL_USERS,
@@ -25,7 +26,8 @@ import {
   INITIAL_PRESCRIPTIONS,
   INITIAL_INVOICES,
   INITIAL_INVENTORY,
-  INITIAL_STAFF
+  INITIAL_STAFF,
+  INITIAL_TREATMENT_CATALOGUE
 } from '../data/seedData';
 import { mapProfileToUser } from './authService';
 
@@ -39,12 +41,22 @@ const STORAGE_KEYS = {
   TREATMENT_PLANS: 'dentiflow_treatment_plans_v2',
   CLINICAL_NOTES: 'dentiflow_clinical_notes_v2',
   PRESCRIPTIONS: 'dentiflow_prescriptions_v2',
-  INVOICES: 'dentiflow_invoices_v2',
+  INVOICES: 'dentiflow_invoices_v3',
   INVENTORY: 'dentiflow_inventory_v2',
   STAFF: 'dentiflow_staff_v2',
   FINANCING_REQUESTS: 'dentiflow_financing_requests_v2',
-  TRANSACTIONS: 'dentiflow_transactions_v2'
+  TRANSACTIONS: 'dentiflow_transactions_v2',
+  TREATMENT_CATALOGUE: 'dentiflow_treatment_catalogue_v2',
+  CONSULTATION_FEE: 'dentiflow_consultation_fee_v1'
 };
+
+// Purge obsolete invoice cache
+try {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem('dentiflow_invoices_v2');
+    localStorage.removeItem('dentiflow_invoices_v1');
+  }
+} catch (e) {}
 
 function safeGet<T>(key: string, fallback: T): T {
   try {
@@ -410,6 +422,12 @@ export const StorageService = {
     supabase.from('patients').upsert(rows).then();
   },
 
+  updatePatient: (patient: Patient): void => {
+    const list = StorageService.getPatients();
+    const updated = list.map(p => (p.id === patient.id ? patient : p));
+    StorageService.savePatients(updated);
+  },
+
   // -------------------------------------------------------------
   // Appointments
   // -------------------------------------------------------------
@@ -531,6 +549,32 @@ export const StorageService = {
   },
 
   // -------------------------------------------------------------
+  // Master Treatment Catalogue
+  // -------------------------------------------------------------
+  getTreatmentCatalogue: (): TreatmentCatalogueItem[] =>
+    safeGet<TreatmentCatalogueItem[]>(STORAGE_KEYS.TREATMENT_CATALOGUE, INITIAL_TREATMENT_CATALOGUE),
+
+  saveTreatmentCatalogue: (items: TreatmentCatalogueItem[]): void => {
+    safeSet(STORAGE_KEYS.TREATMENT_CATALOGUE, items);
+    const rows = items.map(item => ({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      category: item.category || 'General',
+      description: item.description || '',
+      code: item.code || '',
+      updated_at: new Date().toISOString()
+    }));
+    supabase.from('treatment_catalogue').upsert(rows).then();
+  },
+
+  getConsultationFee: (): number => safeGet<number>(STORAGE_KEYS.CONSULTATION_FEE, 500),
+
+  saveConsultationFee: (fee: number): void => {
+    safeSet(STORAGE_KEYS.CONSULTATION_FEE, Math.max(0, Math.round(fee)));
+  },
+
+  // -------------------------------------------------------------
   // Clinical Notes
   // -------------------------------------------------------------
   getClinicalNotes: (): ClinicalNote[] => safeGet<ClinicalNote[]>(STORAGE_KEYS.CLINICAL_NOTES, INITIAL_CLINICAL_NOTES),
@@ -583,7 +627,10 @@ export const StorageService = {
   // -------------------------------------------------------------
   // Invoices
   // -------------------------------------------------------------
-  getInvoices: (): Invoice[] => safeGet<Invoice[]>(STORAGE_KEYS.INVOICES, INITIAL_INVOICES),
+  getInvoices: (): Invoice[] => {
+    const list = safeGet<Invoice[]>(STORAGE_KEYS.INVOICES, INITIAL_INVOICES);
+    return Array.isArray(list) && list.length > 0 ? list : INITIAL_INVOICES;
+  },
 
   saveInvoices: (invoices: Invoice[]): void => {
     safeSet(STORAGE_KEYS.INVOICES, invoices);
@@ -608,6 +655,13 @@ export const StorageService = {
       payment_method: i.paymentMethod
     }));
     supabase.from('invoices').upsert(rows).then();
+  },
+
+  deleteInvoice: (invoiceId: string): void => {
+    const current = StorageService.getInvoices();
+    const updated = current.filter(i => i.id !== invoiceId);
+    safeSet(STORAGE_KEYS.INVOICES, updated);
+    supabase.from('invoices').delete().eq('id', invoiceId).then();
   },
 
   // -------------------------------------------------------------

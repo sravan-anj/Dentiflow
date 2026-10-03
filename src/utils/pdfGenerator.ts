@@ -167,7 +167,8 @@ export function downloadTaxInvoicePdfBlob(invoice: Invoice, patient?: Patient | 
 
   // Clinic Header Branding
   pdf.addText('ORALIX ADVANCED DENTAL MEDICINE', 40, 800, 16, 'Helvetica-Bold', [1, 1, 1]);
-  pdf.addText('TAX INVOICE & OFFICIAL GST RECEIPT', 40, 765, 11, 'Helvetica-Bold', [0.01, 0.52, 0.78]);
+  const invoiceDocTitle = invoice.isDraft ? 'TAX INVOICE & BILL (DRAFT COPY)' : 'TAX INVOICE & OFFICIAL GST RECEIPT';
+  pdf.addText(invoiceDocTitle, 40, 765, 11, 'Helvetica-Bold', [0.01, 0.52, 0.78]);
   pdf.addText('DCI Reg: DCI-KA-2019-8842  |  GSTIN: 29AABCD1234E1Z5', 40, 750, 9, 'Helvetica', [0.4, 0.45, 0.5]);
   pdf.addText('Suite 402, 100 Feet Road, Medical Enclave, Bengaluru - 560038 | Tel: +91 80 2990 8820', 40, 738, 8, 'Helvetica', [0.5, 0.55, 0.6]);
 
@@ -179,11 +180,13 @@ export function downloadTaxInvoicePdfBlob(invoice: Invoice, patient?: Patient | 
   // Left Column - Patient Meta
   const patientName = patient?.name || invoice.patientName;
   const patientCode = patient?.code || invoice.patientCode || 'DF-2026-PAT';
+  const age = invoice.patientAge !== undefined ? invoice.patientAge : patient?.age;
+  const gender = invoice.patientGender || patient?.gender;
   const phone = patient?.phone || '+91 98765 43210';
 
   pdf.addText('BILL TO PATIENT:', 55, 698, 9, 'Helvetica-Bold', [0.3, 0.35, 0.45]);
   pdf.addText(patientName, 55, 683, 12, 'Helvetica-Bold', [0.06, 0.09, 0.16]);
-  pdf.addText(`Patient ID: ${patientCode}`, 55, 668, 9, 'Helvetica', [0.3, 0.35, 0.45]);
+  pdf.addText(`Patient ID: ${patientCode}${age ? `  |  Age: ${age}` : ''}${gender ? ` (${gender})` : ''}`, 55, 668, 9, 'Helvetica', [0.3, 0.35, 0.45]);
   pdf.addText(`Contact Phone: ${phone}`, 55, 654, 9, 'Helvetica', [0.3, 0.35, 0.45]);
   pdf.addText(`Address: ${patient?.address || 'Bengaluru, Karnataka, India'}`, 55, 640, 8, 'Helvetica', [0.4, 0.45, 0.5]);
 
@@ -241,6 +244,8 @@ export function downloadTaxInvoicePdfBlob(invoice: Invoice, patient?: Patient | 
   pdf.addLine(40, currentY, 555.28, currentY, [0.8, 0.83, 0.88], 1);
 
   // Summary Financial Box
+  const discountVal = Number(invoice.discount) || 0;
+  const grossTotal = invoice.subtotal !== undefined ? invoice.subtotal : (invoice.totalAmount || invoice.total || 0) + discountVal;
   const totalBilled = invoice.totalAmount || invoice.total || 0;
   const paid = invoice.amountPaid || 0;
   const due = invoice.balanceDue;
@@ -248,22 +253,35 @@ export function downloadTaxInvoicePdfBlob(invoice: Invoice, patient?: Patient | 
   currentY -= 25;
   const summaryBoxX = 320;
   const summaryWidth = 235.28;
+  const boxHeight = discountVal > 0 ? 112 : 95;
 
-  pdf.addRect(summaryBoxX, currentY - 80, summaryWidth, 95, [0.96, 0.98, 1.0], [0.85, 0.88, 0.92], 1);
+  pdf.addRect(summaryBoxX, currentY - (boxHeight - 15), summaryWidth, boxHeight, [0.96, 0.98, 1.0], [0.85, 0.88, 0.92], 1);
 
-  pdf.addText('Gross Treatment Total:', summaryBoxX + 15, currentY, 9, 'Helvetica', [0.3, 0.35, 0.45]);
-  pdf.addText(formatCurrency(totalBilled), summaryBoxX + 140, currentY, 9, 'Helvetica-Bold', [0.1, 0.12, 0.18]);
+  pdf.addText('Gross Subtotal:', summaryBoxX + 15, currentY, 9, 'Helvetica', [0.3, 0.35, 0.45]);
+  pdf.addText(formatCurrency(grossTotal), summaryBoxX + 140, currentY, 9, 'Helvetica-Bold', [0.1, 0.12, 0.18]);
 
-  pdf.addText('GST / Tax (Exempt 0%):', summaryBoxX + 15, currentY - 18, 9, 'Helvetica', [0.3, 0.35, 0.45]);
-  pdf.addText('INR 0.00', summaryBoxX + 140, currentY - 18, 9, 'Helvetica', [0.3, 0.35, 0.45]);
+  let offsetY = currentY - 18;
+  if (discountVal > 0) {
+    pdf.addText('Discount Applied:', summaryBoxX + 15, offsetY, 9, 'Helvetica', [0.08, 0.5, 0.24]);
+    pdf.addText(`- ${formatCurrency(discountVal)}`, summaryBoxX + 140, offsetY, 9, 'Helvetica-Bold', [0.08, 0.5, 0.24]);
+    offsetY -= 18;
 
-  pdf.addText('Total Amount Paid:', summaryBoxX + 15, currentY - 36, 9, 'Helvetica-Bold', [0.08, 0.5, 0.24]);
-  pdf.addText(formatCurrency(paid), summaryBoxX + 140, currentY - 36, 9, 'Helvetica-Bold', [0.08, 0.5, 0.24]);
+    pdf.addText('Net Billable Total:', summaryBoxX + 15, offsetY, 9, 'Helvetica', [0.1, 0.12, 0.18]);
+    pdf.addText(formatCurrency(totalBilled), summaryBoxX + 140, offsetY, 9, 'Helvetica-Bold', [0.1, 0.12, 0.18]);
+    offsetY -= 18;
+  } else {
+    pdf.addText('GST / Tax (Exempt 0%):', summaryBoxX + 15, offsetY, 9, 'Helvetica', [0.3, 0.35, 0.45]);
+    pdf.addText('INR 0.00', summaryBoxX + 140, offsetY, 9, 'Helvetica', [0.3, 0.35, 0.45]);
+    offsetY -= 18;
+  }
 
-  pdf.addLine(summaryBoxX + 10, currentY - 48, summaryBoxX + summaryWidth - 10, currentY - 48, [0.8, 0.83, 0.88], 1);
+  pdf.addText('Total Amount Paid:', summaryBoxX + 15, offsetY, 9, 'Helvetica-Bold', [0.08, 0.5, 0.24]);
+  pdf.addText(formatCurrency(paid), summaryBoxX + 140, offsetY, 9, 'Helvetica-Bold', [0.08, 0.5, 0.24]);
 
-  pdf.addText('Balance Due / Outstanding:', summaryBoxX + 15, currentY - 65, 10, 'Helvetica-Bold', due > 0 ? [0.8, 0.45, 0.05] : [0.1, 0.12, 0.18]);
-  pdf.addText(formatCurrency(due), summaryBoxX + 140, currentY - 65, 11, 'Helvetica-Bold', due > 0 ? [0.8, 0.45, 0.05] : [0.08, 0.5, 0.24]);
+  pdf.addLine(summaryBoxX + 10, offsetY - 10, summaryBoxX + summaryWidth - 10, offsetY - 10, [0.8, 0.83, 0.88], 1);
+
+  pdf.addText('Balance Due / Outstanding:', summaryBoxX + 15, offsetY - 25, 10, 'Helvetica-Bold', due > 0 ? [0.8, 0.45, 0.05] : [0.1, 0.12, 0.18]);
+  pdf.addText(formatCurrency(due), summaryBoxX + 140, offsetY - 25, 11, 'Helvetica-Bold', due > 0 ? [0.8, 0.45, 0.05] : [0.08, 0.5, 0.24]);
 
   // Payment Record / Security Note
   pdf.addText('PAYMENT & REIMBURSEMENT NOTES:', 40, currentY, 9, 'Helvetica-Bold', [0.3, 0.35, 0.45]);
