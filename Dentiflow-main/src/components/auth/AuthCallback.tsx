@@ -1,114 +1,221 @@
 import React, { useEffect, useState } from 'react';
 import { ToothIcon } from '../common/ToothIcon';
-import { User } from '../../types';
+import type { User } from '../../types';
 import { AuthService } from '../../utils/authService';
 import { supabase } from '../../utils/supabaseClient';
-import { AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
+import { AlertCircle, ArrowLeft } from 'lucide-react';
 
 interface AuthCallbackProps {
   onSuccess: (user: User) => void;
   onNavigateSignIn: () => void;
 }
 
-/**
- * Dedicated OAuth Callback Route Component (/auth/callback).
- * 
- * WHY /auth/callback EXISTS:
- * When authenticating via Google OAuth with Supabase Auth, the OAuth provider redirects the browser
- * back to the application URL with authentication tokens (either in the URL hash fragment
- * #access_token=... or code=... in PKCE mode).
- * 
- * Having a dedicated /auth/callback route:
- * 1. Isolates OAuth session handling from the regular /login view.
- * 2. Prevents the application router from mistaking an OAuth redirect for an unauthenticated user on /login.
- * 3. Allows Supabase's browser client to parse the session, verify the token, and fire onAuthStateChange.
- * 4. Ensures we can securely bridge the Supabase user to an application Patient before rendering the portal.
- */
-export const AuthCallback: React.FC<AuthCallbackProps> = ({ onSuccess, onNavigateSignIn }) => {
+export const AuthCallback: React.FC<AuthCallbackProps> = ({
+  onSuccess,
+  onNavigateSignIn,
+}) => {
   const [error, setError] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState('Verifying Google credentials with Supabase Auth...');
+  const [statusMessage, setStatusMessage] = useState(
+    'Verifying Google credentials with Supabase Auth...'
+  );
 
   useEffect(() => {
     let isMounted = true;
+    let retryTimeout: ReturnType<typeof setTimeout> | null = null;
+    let isProcessing = false;
 
-    // 1. Check for explicit error parameters in URL hash or query string
-    if (typeof window !== 'undefined') {
-      const hash = window.location.hash || '';
-      const search = window.location.search || '';
-      if (hash.includes('error=') || search.includes('error=')) {
-        const rawParams = hash.startsWith('#') ? hash.substring(1) : search.startsWith('?') ? search.substring(1) : '';
-        const params = new URLSearchParams(rawParams);
-        const errorDesc = params.get('error_description') || params.get('error') || 'Google authentication was declined or expired.';
-        if (isMounted) {
-          setError(decodeURIComponent(errorDesc).replace(/\+/g, ' '));
-        }
-        return;
-      }
-    }
+    const processSession = async (sessionUser: {
+      id: string;
+      email?: string;
+      user_metadata?: Record<string, unknown>;
+      [key: string]: unknown;
+    }) => {
+      if (!isMounted || isProcessing) return;
 
-    const processSession = async (sessionUser: any) => {
+      isProcessing = true;
+
       try {
-        if (!isMounted) return;
         setStatusMessage('Syncing patient chart and medical records...');
 
-        // Bridge Supabase user -> Dentiflow Patient User
         const patientUser = await AuthService.syncGoogleUser(sessionUser);
 
-        if (isMounted) {
-          // Clean the OAuth tokens and URL hash from browser history
-          if (typeof window !== 'undefined') {
-            try {
-              window.history.replaceState(null, '', '/patient');
-            } catch (_) {}
-          }
-          onSuccess(patientUser);
+        if (!isMounted) return;
+
+        // Remove OAuth callback parameters from the browser URL.
+        try {
+          window.history.replaceState(null, '', '/patient');
+        } catch (historyError) {
+          console.warn(
+            'Unable to clean OAuth callback URL:',
+            historyError
+          );
         }
-      } catch (err: any) {
-        console.error('Failed to process OAuth session in /auth/callback:', err);
-        if (isMounted) {
-          setError(err?.message || 'Failed to link Google account to patient record.');
-        }
+
+        onSuccess(patientUser);
+      } catch (err: unknown) {
+        console.error(
+          'Failed to process OAuth session in /auth/callback:',
+          err
+        );
+
+        if (!isMounted) return;
+
+        const message =
+          err instanceof Error
+            ? err.message
+            : 'Failed to link Google account to patient record.';
+
+        setError(message);
+        isProcessing = false;
       }
     };
 
-    // 2. Listen to Supabase onAuthStateChange for SIGNED_IN event
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+    const checkForOAuthError = (): boolean => {
+      if (typeof window === 'undefined') return false;
+
+      const hash = window.location.hash || '';
+      const search = window.location.search || '';
+
+      let rawParams = '';
+
+      if (hash.startsWith('#')) {
+        rawParams = hash.substring(1);
+      } else if (search.startsWith('?')) {
+        rawParams = search.substring(1);
+      }
+
+      if (!rawParams) return false;
+
+      const params = new URLSearchParams(rawParams);
+
+      const oauthError = params.get('error');
+
+      if (!oauthError) return false;
+
+      const errorDescription =
+        params.get('error_description') ||
+        oauthError ||
+        'Google authentication was declined or expired.';
+
+      if (isMounted) {
+        setError(
+          errorDescription.replace(/\+/g, ' ')
+        );
+      }
+
+      return true;
+    };
+
+    const handleAuthState = async (
+      session: { user: typeof sessionUser } | null
+    ) => {
+      if (session?.user) {
+        await processSession(session.user);
+      }
+    };
+
+    // Check for an OAuth provider error before starting session processing.
+    if (checkForOAuthError()) {
+      return () => {
+        isMounted = false;
+
+        if (retryTimeout) {
+          clearTimeout(retryTimeout);
+        }
+      };
+    }
+
+    // Listen for Supabase authentication state changes.
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (
+        event === 'SIGNED_IN' ||
+        event === 'INITIAL_SESSION' ||
+        event === 'TOKEN_REFRESHED'
+      ) {
         if (session?.user) {
-          await processSession(session.user);
+          void processSession(session.user);
         }
       }
     });
 
-    // 3. Inspect existing session via getSession() in case the tokens were already parsed
-    supabase.auth.getSession().then(async ({ data: { session }, error: sessionError }) => {
-      if (sessionError) {
-        if (isMounted) setError(sessionError.message);
-        return;
-      }
+    // Check whether Supabase already has an active session.
+    const checkExistingSession = async () => {
+      try {
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
 
-      if (session?.user) {
-        await processSession(session.user);
-      } else {
-        // Give Supabase client a brief moment to finish URL fragment parsing
-        const timeout = setTimeout(() => {
-          if (isMounted && !error) {
-            supabase.auth.getSession().then(({ data: { session: retrySession } }) => {
-              if (retrySession?.user) {
-                processSession(retrySession.user);
-              } else if (isMounted) {
-                setError('No authenticated Supabase session was detected in the callback URL.');
-              }
-            });
+        if (!isMounted) return;
+
+        if (sessionError) {
+          setError(sessionError.message);
+          return;
+        }
+
+        if (session?.user) {
+          await handleAuthState(session);
+          return;
+        }
+
+        // Supabase may still be processing the OAuth callback.
+        retryTimeout = setTimeout(async () => {
+          if (!isMounted || isProcessing) return;
+
+          try {
+            const {
+              data: { session: retrySession },
+              error: retryError,
+            } = await supabase.auth.getSession();
+
+            if (!isMounted) return;
+
+            if (retryError) {
+              setError(retryError.message);
+              return;
+            }
+
+            if (retrySession?.user) {
+              await processSession(retrySession.user);
+            } else {
+              setError(
+                'No authenticated Supabase session was detected in the callback URL.'
+              );
+            }
+          } catch (retryErr: unknown) {
+            if (!isMounted) return;
+
+            const message =
+              retryErr instanceof Error
+                ? retryErr.message
+                : 'Unable to verify the Supabase authentication session.';
+
+            setError(message);
           }
         }, 1500);
+      } catch (err: unknown) {
+        if (!isMounted) return;
 
-        return () => clearTimeout(timeout);
+        const message =
+          err instanceof Error
+            ? err.message
+            : 'Unable to verify the Supabase authentication session.';
+
+        setError(message);
       }
-    });
+    };
+
+    void checkExistingSession();
 
     return () => {
       isMounted = false;
+
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
+      }
+
       subscription.unsubscribe();
     };
   }, [onSuccess]);
@@ -120,8 +227,15 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({ onSuccess, onNavigat
           <div className="w-12 h-12 rounded-2xl bg-[#B97870]/15 text-[#9B4D45] flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-6 h-6" />
           </div>
-          <h2 className="text-lg font-extrabold text-[#252525] mb-2">Authentication Failed</h2>
-          <p className="text-xs text-[#6F6D69] mb-6 leading-relaxed">{error}</p>
+
+          <h2 className="text-lg font-extrabold text-[#252525] mb-2">
+            Authentication Failed
+          </h2>
+
+          <p className="text-xs text-[#6F6D69] mb-6 leading-relaxed">
+            {error}
+          </p>
+
           <button
             type="button"
             onClick={onNavigateSignIn}
@@ -141,9 +255,16 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({ onSuccess, onNavigat
         <div className="w-14 h-14 rounded-2xl bg-[#EDE8DE] border border-[#C8B58D]/30 flex items-center justify-center mx-auto mb-4 animate-pulse">
           <ToothIcon size={24} />
         </div>
+
         <div className="w-6 h-6 border-3 border-[#C8B58D] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <h2 className="text-base font-extrabold text-[#252525]">Completing Authentication</h2>
-        <p className="text-xs text-[#6F6D69] mt-1.5 leading-relaxed">{statusMessage}</p>
+
+        <h2 className="text-base font-extrabold text-[#252525]">
+          Completing Authentication
+        </h2>
+
+        <p className="text-xs text-[#6F6D69] mt-1.5 leading-relaxed">
+          {statusMessage}
+        </p>
       </div>
     </div>
   );
