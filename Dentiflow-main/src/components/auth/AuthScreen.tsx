@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ToothIcon } from '../common/ToothIcon';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { User, UserRole } from '../../types';
 import { INITIAL_USERS } from '../../data/seedData';
 import { StorageService } from '../../utils/storage';
