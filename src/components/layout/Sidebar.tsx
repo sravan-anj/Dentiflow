@@ -15,8 +15,11 @@ import {
   LogOut,
   Stethoscope,
   ShieldCheck,
+  Lock,
+  Palette,
   Image as ImageIcon
 } from 'lucide-react';
+
 
 export type ActiveTab =
   | 'dashboard'
@@ -30,6 +33,7 @@ export type ActiveTab =
   | 'inventory'
   | 'staff'
   | 'reports'
+  | 'brand-studio'
   | 'account-access'
   | 'profile';
 
@@ -76,7 +80,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'chart', label: 'Dental Odontogram', icon: Stethoscope },
         { id: 'treatment-plans', label: 'Treatment Plans', icon: Layers },
         { id: 'clinical', label: 'SOAP Notes & Rx', icon: FileText },
+
+
         { id: 'billing', label: 'Billing', icon: CreditCard }
+
       ];
     }
 
@@ -93,6 +100,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       { id: 'inventory', label: 'Sterile Inventory', icon: Package },
       { id: 'staff', label: 'Doctors & Staff', icon: UserCheck },
       { id: 'reports', label: 'Practice Reports', icon: BarChart3 },
+      { id: 'brand-studio', label: 'Brand Studio', icon: Palette },
       { id: 'account-access', label: 'User & Account Access', icon: ShieldCheck }
     ];
   };

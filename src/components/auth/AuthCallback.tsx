@@ -46,13 +46,16 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({ onSuccess, onNavigat
       }
     }
 
-    const processSession = async (sessionUser: any) => {
+    const processSession = async () => {
       try {
         if (!isMounted) return;
         setStatusMessage('Syncing patient chart and medical records...');
 
         // Bridge Supabase user -> Dentiflow Patient User
-        const patientUser = await AuthService.syncGoogleUser(sessionUser);
+        const patientUser = await AuthService.getCurrentUser();
+        if (!patientUser) {
+          throw new Error('No authenticated user profile was found.');
+        }
 
         if (isMounted) {
           // Clean the OAuth tokens and URL hash from browser history
@@ -75,7 +78,7 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({ onSuccess, onNavigat
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
         if (session?.user) {
-          await processSession(session.user);
+          await processSession();
         }
       }
     });
@@ -88,14 +91,14 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({ onSuccess, onNavigat
       }
 
       if (session?.user) {
-        await processSession(session.user);
+        await processSession();
       } else {
         // Give Supabase client a brief moment to finish URL fragment parsing
         const timeout = setTimeout(() => {
           if (isMounted && !error) {
             supabase.auth.getSession().then(({ data: { session: retrySession } }) => {
               if (retrySession?.user) {
-                processSession(retrySession.user);
+                processSession();
               } else if (isMounted) {
                 setError('No authenticated Supabase session was detected in the callback URL.');
               }
