@@ -30,7 +30,9 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({
       user_metadata?: Record<string, unknown>;
       [key: string]: unknown;
     }) => {
-      if (!isMounted || isProcessing) return;
+      if (!isMounted || isProcessing) {
+        return;
+      }
 
       isProcessing = true;
 
@@ -39,9 +41,10 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({
 
         const patientUser = await AuthService.syncGoogleUser(sessionUser);
 
-        if (!isMounted) return;
+        if (!isMounted) {
+          return;
+        }
 
-        // Remove OAuth callback parameters from the browser URL.
         try {
           window.history.replaceState(null, '', '/patient');
         } catch (historyError) {
@@ -58,7 +61,9 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({
           err
         );
 
-        if (!isMounted) return;
+        if (!isMounted) {
+          return;
+        }
 
         const message =
           err instanceof Error
@@ -71,7 +76,9 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({
     };
 
     const checkForOAuthError = (): boolean => {
-      if (typeof window === 'undefined') return false;
+      if (typeof window === 'undefined') {
+        return false;
+      }
 
       const hash = window.location.hash || '';
       const search = window.location.search || '';
@@ -84,13 +91,16 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({
         rawParams = search.substring(1);
       }
 
-      if (!rawParams) return false;
+      if (!rawParams) {
+        return false;
+      }
 
       const params = new URLSearchParams(rawParams);
-
       const oauthError = params.get('error');
 
-      if (!oauthError) return false;
+      if (!oauthError) {
+        return false;
+      }
 
       const errorDescription =
         params.get('error_description') ||
@@ -98,23 +108,13 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({
         'Google authentication was declined or expired.';
 
       if (isMounted) {
-        setError(
-          errorDescription.replace(/\+/g, ' ')
-        );
+        setError(errorDescription.replace(/\+/g, ' '));
       }
 
       return true;
     };
 
-    const handleAuthState = async (
-      session: { user: typeof sessionUser } | null
-    ) => {
-      if (session?.user) {
-        await processSession(session.user);
-      }
-    };
-
-    // Check for an OAuth provider error before starting session processing.
+    // Check for OAuth provider errors before starting session processing.
     if (checkForOAuthError()) {
       return () => {
         isMounted = false;
@@ -148,7 +148,9 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({
           error: sessionError,
         } = await supabase.auth.getSession();
 
-        if (!isMounted) return;
+        if (!isMounted) {
+          return;
+        }
 
         if (sessionError) {
           setError(sessionError.message);
@@ -156,13 +158,15 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({
         }
 
         if (session?.user) {
-          await handleAuthState(session);
+          await processSession(session.user);
           return;
         }
 
         // Supabase may still be processing the OAuth callback.
         retryTimeout = setTimeout(async () => {
-          if (!isMounted || isProcessing) return;
+          if (!isMounted || isProcessing) {
+            return;
+          }
 
           try {
             const {
@@ -170,7 +174,9 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({
               error: retryError,
             } = await supabase.auth.getSession();
 
-            if (!isMounted) return;
+            if (!isMounted) {
+              return;
+            }
 
             if (retryError) {
               setError(retryError.message);
@@ -185,7 +191,9 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({
               );
             }
           } catch (retryErr: unknown) {
-            if (!isMounted) return;
+            if (!isMounted) {
+              return;
+            }
 
             const message =
               retryErr instanceof Error
@@ -196,7 +204,9 @@ export const AuthCallback: React.FC<AuthCallbackProps> = ({
           }
         }, 1500);
       } catch (err: unknown) {
-        if (!isMounted) return;
+        if (!isMounted) {
+          return;
+        }
 
         const message =
           err instanceof Error
